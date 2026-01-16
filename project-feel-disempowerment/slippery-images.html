@@ -1,0 +1,1827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Check</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: #f0f0f0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .page-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .site-header {
+            text-align: center;
+            color: #5f6368;
+            font-size: 14px;
+        }
+
+        .site-header h1 {
+            font-size: 18px;
+            font-weight: 500;
+            color: #202124;
+            margin-bottom: 4px;
+        }
+
+        .captcha-widget {
+            background: white;
+            border-radius: 3px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            overflow: hidden;
+            width: 303px;
+        }
+
+        .captcha-header {
+            background: #4285f4;
+            padding: 12px 16px;
+            color: white;
+        }
+
+        .captcha-instruction {
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .captcha-instruction strong {
+            display: block;
+            font-size: 15px;
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+
+        .captcha-instruction small {
+            font-size: 11px;
+            opacity: 0.9;
+        }
+
+        .captcha-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2px;
+            background: #e0e0e0;
+            padding: 2px;
+        }
+
+        .captcha-tile {
+            aspect-ratio: 1;
+            background: #f5f5f5;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.1s ease;
+        }
+
+        .captcha-tile:hover {
+            filter: brightness(1.05);
+        }
+
+        .captcha-tile:active {
+            transform: scale(0.98);
+        }
+
+        .captcha-tile img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .captcha-tile img.loaded {
+            opacity: 1;
+        }
+
+        .captcha-tile .spinner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            border: 2px solid #e0e0e0;
+            border-top-color: #4285f4;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        .captcha-tile.selected::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(66, 133, 244, 0.3);
+            border: 3px solid #4285f4;
+        }
+
+        .captcha-tile.selected .check-mark {
+            display: flex;
+        }
+
+        .check-mark {
+            display: none;
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            width: 24px;
+            height: 24px;
+            background: #4285f4;
+            border-radius: 50%;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .check-mark svg {
+            width: 14px;
+            height: 14px;
+            fill: white;
+        }
+
+        .captcha-tile.correct::after {
+            background: rgba(52, 168, 83, 0.3);
+            border-color: #34a853;
+        }
+
+        .captcha-tile.correct .check-mark {
+            background: #34a853;
+        }
+
+        .captcha-tile.wrong::after {
+            background: rgba(234, 67, 53, 0.3);
+            border-color: #ea4335;
+        }
+
+        .captcha-tile.wrong .check-mark {
+            background: #ea4335;
+            display: flex;
+        }
+
+        .captcha-tile.missed {
+            outline: 3px solid #fbbc04;
+            outline-offset: -3px;
+        }
+
+        .captcha-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 8px 8px 12px;
+            border-top: 1px solid #e0e0e0;
+            background: #f9f9f9;
+        }
+
+        .captcha-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .control-btn {
+            width: 28px;
+            height: 28px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #70757a;
+            transition: background 0.2s;
+        }
+
+        .control-btn:hover {
+            background: rgba(0,0,0,0.05);
+        }
+
+        .control-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .verify-btn {
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: 2px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: background 0.2s, box-shadow 0.2s;
+        }
+
+        .verify-btn:hover:not(:disabled) {
+            background: #3367d6;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        .verify-btn:disabled {
+            background: #c4c4c4;
+            cursor: not-allowed;
+        }
+
+        .captcha-branding {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 10px;
+            color: #9aa0a6;
+        }
+
+        .branding-text {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.3;
+        }
+
+        .branding-text a {
+            color: #4285f4;
+            text-decoration: none;
+        }
+
+        .stats-panel {
+            background: white;
+            border-radius: 3px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            padding: 16px 24px;
+            display: flex;
+            gap: 32px;
+            text-align: center;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 500;
+            color: #202124;
+        }
+
+        .stat-value.success { color: #34a853; }
+        .stat-value.warning { color: #fbbc04; }
+        .stat-value.error { color: #ea4335; }
+
+        .stat-label {
+            font-size: 11px;
+            color: #5f6368;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+        }
+
+        .message-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .message-overlay.active { display: flex; }
+
+        .message-box {
+            background: white;
+            border-radius: 8px;
+            padding: 32px;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .message-box h2 {
+            font-size: 20px;
+            font-weight: 500;
+            color: #202124;
+            margin-bottom: 8px;
+        }
+
+        .message-box p {
+            font-size: 14px;
+            color: #5f6368;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .message-box .icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .message-box .icon.success {
+            background: #e6f4ea;
+            color: #34a853;
+        }
+
+        .message-box .icon.error {
+            background: #fce8e6;
+            color: #ea4335;
+        }
+
+        .message-box .icon svg {
+            width: 32px;
+            height: 32px;
+        }
+
+        .message-btn {
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .message-btn:hover { background: #3367d6; }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .loading-overlay.active { display: flex; }
+
+        .loading-overlay .big-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e0e0e0;
+            border-top-color: #4285f4;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .grid-container { position: relative; }
+
+        .checkbox-container {
+            background: white;
+            border-radius: 3px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 303px;
+            cursor: pointer;
+            transition: box-shadow 0.2s;
+        }
+
+        .checkbox-container:hover {
+            box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+        }
+
+        .checkbox-container { display: none; }
+
+        .checkbox-frame {
+            width: 28px;
+            height: 28px;
+            border: 2px solid #c4c4c4;
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .checkbox-container:hover .checkbox-frame {
+            border-color: #4285f4;
+        }
+
+        .checkbox-frame svg {
+            width: 20px;
+            height: 20px;
+            fill: #4285f4;
+            opacity: 0;
+            transform: scale(0);
+            transition: all 0.2s;
+        }
+
+        .checkbox-frame.checking {
+            border-color: transparent;
+            background: #4285f4;
+        }
+
+        .checkbox-frame.checking svg { fill: white; }
+
+        .checkbox-label {
+            font-size: 14px;
+            color: #202124;
+        }
+
+        .captcha-widget.hidden { display: none; }
+
+        .checkbox-branding {
+            margin-left: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 2px;
+        }
+
+        .checkbox-branding span {
+            font-size: 9px;
+            color: #9aa0a6;
+        }
+
+        .checkbox-branding a {
+            font-size: 9px;
+            color: #9aa0a6;
+            text-decoration: none;
+        }
+
+        .pulse-animation {
+            animation: pulse 0.3s ease;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* Phase Indicator */
+        .phase-indicator {
+            display: inline-block;
+            padding: 8px 16px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #5f6368;
+            margin-bottom: 8px;
+        }
+
+        .phase-indicator.ai-active {
+            border-color: #34a853;
+            color: #34a853;
+            background: #e6f4ea;
+        }
+
+        .phase-indicator.ai-removed {
+            border-color: #ea4335;
+            color: #ea4335;
+            background: #fce8e6;
+        }
+
+        /* AI Hint styling */
+        .captcha-tile.ai-hint {
+            outline: 3px solid #34a853;
+            outline-offset: -3px;
+        }
+
+        .captcha-tile.ai-hint::before {
+            content: 'AI';
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            background: #34a853;
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 3px;
+            z-index: 20;
+        }
+
+        /* Phase results panel */
+        .phase-results {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 16px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .phase-results.active {
+            display: block;
+        }
+
+        .phase-results h3 {
+            font-size: 16px;
+            font-weight: 500;
+            color: #202124;
+            margin-bottom: 12px;
+        }
+
+        .phase-scores {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .phase-score-item {
+            flex: 1;
+            min-width: 100px;
+            text-align: center;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .phase-score-item .label {
+            font-size: 11px;
+            color: #5f6368;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .phase-score-item .value {
+            font-size: 20px;
+            font-weight: 500;
+            color: #202124;
+        }
+
+        .phase-score-item.highlight {
+            background: #e6f4ea;
+        }
+
+        .phase-score-item.highlight .value {
+            color: #34a853;
+        }
+
+        .phase-score-item.warning .value {
+            color: #ea4335;
+        }
+
+        /* Fullscreen Results Page */
+        #fullscreen-results {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        #fullscreen-results.active {
+            opacity: 1;
+        }
+
+        .results-content {
+            max-width: 900px;
+            width: 90%;
+            text-align: center;
+            color: white;
+        }
+
+        .results-content h1 {
+            font-size: 42px;
+            font-weight: 300;
+            margin-bottom: 40px;
+            letter-spacing: 2px;
+            color: #fff;
+        }
+
+        .charts-container {
+            display: flex;
+            gap: 40px;
+            justify-content: center;
+            margin-bottom: 50px;
+            flex-wrap: wrap;
+        }
+
+        .chart-wrapper {
+            flex: 1;
+            min-width: 300px;
+            max-width: 400px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 24px;
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-wrapper h2 {
+            font-size: 18px;
+            font-weight: 400;
+            margin-bottom: 20px;
+            color: rgba(255,255,255,0.9);
+        }
+
+        .chart {
+            flex: 1;
+            display: flex;
+            gap: 16px;
+        }
+
+        .chart-bars {
+            flex: 1;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-around;
+            gap: 12px;
+            padding-bottom: 50px;
+        }
+
+        .bar-group {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            position: relative;
+        }
+
+        .bar {
+            width: 100%;
+            max-width: 50px;
+            background: linear-gradient(180deg, #4285f4 0%, #2563eb 100%);
+            border-radius: 6px 6px 0 0;
+            transition: height 0.8s ease-out;
+            min-height: 4px;
+            margin-bottom: 50px;
+        }
+
+        .bar.ai {
+            background: linear-gradient(180deg, #34a853 0%, #22c55e 100%);
+        }
+
+        .bar.warning {
+            background: linear-gradient(180deg, #ea4335 0%, #dc2626 100%);
+        }
+
+        .bar.time {
+            background: linear-gradient(180deg, #9333ea 0%, #7c3aed 100%);
+        }
+
+        .bar.time.ai {
+            background: linear-gradient(180deg, #06b6d4 0%, #0891b2 100%);
+        }
+
+        .bar.time.warning {
+            background: linear-gradient(180deg, #f97316 0%, #ea580c 100%);
+        }
+
+        .bar-label {
+            position: absolute;
+            bottom: 26px;
+            font-size: 11px;
+            color: rgba(255,255,255,0.7);
+            white-space: nowrap;
+        }
+
+        .bar-value {
+            position: absolute;
+            bottom: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .chart-axis {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            font-size: 10px;
+            color: rgba(255,255,255,0.4);
+            padding-bottom: 60px;
+            width: 30px;
+            text-align: right;
+        }
+
+        .assessment {
+            background: rgba(234, 67, 53, 0.15);
+            border: 1px solid rgba(234, 67, 53, 0.3);
+            border-radius: 12px;
+            padding: 30px 40px;
+            margin: 0 auto 40px;
+            max-width: 700px;
+        }
+
+        .assessment p {
+            font-size: 20px;
+            line-height: 1.6;
+            color: rgba(255,255,255,0.95);
+            margin: 0;
+        }
+
+        .assessment strong {
+            color: #fbbf24;
+            font-weight: 500;
+        }
+
+        .restart-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 14px 40px;
+            font-size: 16px;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        .restart-btn:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="page-container">
+        <div class="site-header">
+            <h1>Confirm you're human</h1>
+            <p>Please complete the security check below</p>
+            <div id="phase-indicator" class="phase-indicator" style="display: none;"></div>
+        </div>
+
+        <div id="checkbox-container" class="checkbox-container">
+            <div id="checkbox-frame" class="checkbox-frame">
+                <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+            </div>
+            <span class="checkbox-label">I'm not a robot</span>
+            <div class="checkbox-branding">
+                <svg height="40" viewBox="0 0 64 64" width="40">
+                    <g fill="none" fill-rule="evenodd">
+                        <path d="M32 2C15.432 2 2 15.432 2 32s13.432 30 30 30 30-13.432 30-30S48.568 2 32 2z" fill="#f5f5f5"/>
+                        <path d="M32 6C17.64 6 6 17.64 6 32s11.64 26 26 26 26-11.64 26-26S46.36 6 32 6zm0 47c-11.598 0-21-9.402-21-21s9.402-21 21-21 21 9.402 21 21-9.402 21-21 21z" fill="#e0e0e0"/>
+                        <circle cx="32" cy="32" fill="#4285f4" r="16"/>
+                        <path d="M32 20c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm-2 17l-4-4 1.5-1.5L30 34l6.5-6.5L38 29l-8 8z" fill="#fff"/>
+                    </g>
+                </svg>
+                <span>reCAPTCHA</span>
+                <a href="#">Privacy - Terms</a>
+            </div>
+        </div>
+
+        <div id="captcha-widget" class="captcha-widget">
+            <div class="captcha-header">
+                <div class="captcha-instruction">
+                    <strong>Select all images with traffic lights</strong>
+                    <small>Click verify once there are none left</small>
+                </div>
+            </div>
+
+            <div class="grid-container">
+                <div id="captcha-grid" class="captcha-grid"></div>
+                <div id="loading-overlay" class="loading-overlay">
+                    <div class="big-spinner"></div>
+                </div>
+            </div>
+
+            <div class="captcha-footer">
+                <div class="captcha-branding">
+                    <svg height="32" viewBox="0 0 64 64" width="32">
+                        <g fill="none" fill-rule="evenodd">
+                            <circle cx="32" cy="32" fill="#4285f4" r="16"/>
+                            <path d="M32 20c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm-2 17l-4-4 1.5-1.5L30 34l6.5-6.5L38 29l-8 8z" fill="#fff"/>
+                        </g>
+                    </svg>
+                    <div class="branding-text">
+                        <span>reCAPTCHA</span>
+                        <a href="#">Privacy - Terms</a>
+                    </div>
+                </div>
+
+                <div class="captcha-controls">
+                    <button class="control-btn" id="reload-btn" title="Get a new challenge">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                    </button>
+                    <button class="control-btn" id="audio-btn" title="Get an audio challenge">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                    </button>
+                    <button class="control-btn" id="info-btn" title="Help">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+                    </button>
+                </div>
+
+                <button id="verify-btn" class="verify-btn" disabled>Verify</button>
+            </div>
+        </div>
+
+        <div class="stats-panel">
+            <div class="stat-item">
+                <span id="stat-time" class="stat-value">0.0s</span>
+                <span class="stat-label">Time</span>
+            </div>
+            <div class="stat-item">
+                <span id="stat-completed" class="stat-value">0</span>
+                <span class="stat-label">Completed</span>
+            </div>
+            <div class="stat-item">
+                <span id="stat-accuracy" class="stat-value">-</span>
+                <span class="stat-label">Accuracy</span>
+            </div>
+            <div class="stat-item">
+                <span id="stat-streak" class="stat-value">0</span>
+                <span class="stat-label">Streak</span>
+            </div>
+        </div>
+
+        <div id="phase-results" class="phase-results">
+            <h3>Experiment Complete - Results</h3>
+            <div class="phase-scores">
+                <div class="phase-score-item" id="result-phase1">
+                    <div class="label">Phase 1: Human</div>
+                    <div class="value">-</div>
+                </div>
+                <div class="phase-score-item" id="result-phase2">
+                    <div class="label">Phase 2: AI Hints</div>
+                    <div class="value">-</div>
+                </div>
+                <div class="phase-score-item" id="result-phase3">
+                    <div class="label">Phase 3: AI Auto</div>
+                    <div class="value">-</div>
+                </div>
+                <div class="phase-score-item" id="result-phase4">
+                    <div class="label">Phase 4: No AI</div>
+                    <div class="value">-</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="message-overlay" class="message-overlay">
+        <div class="message-box">
+            <div id="message-icon" class="icon success">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+            </div>
+            <h2 id="message-title">Verification Complete</h2>
+            <p id="message-text">You've successfully verified that you're human.</p>
+            <button id="message-btn" class="message-btn">Continue</button>
+        </div>
+    </div>
+
+
+    <script>
+        // ===========================================
+        // LOCAL IMAGES - Google reCAPTCHA V2 Dataset
+        // ===========================================
+
+        // Images WITH traffic lights - from Kaggle dataset (150 images)
+        const trafficLightImages = [
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(1).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(10).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(100).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(101).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(102).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(103).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(104).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(105).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(106).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(107).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(108).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(109).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(11).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(110).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(111).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(112).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(113).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(114).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(115).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(116).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(117).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(118).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(119).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(12).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(120).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(121).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(122).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(123).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(124).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(125).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(126).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(127).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(128).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(129).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(13).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(130).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(131).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(132).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(133).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(134).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(135).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(136).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(137).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(138).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(139).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(14).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(140).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(141).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(142).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(143).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(144).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(145).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(146).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(147).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(148).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(149).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(15).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(150).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(151).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(152).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(153).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(154).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(155).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(156).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(157).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(158).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(159).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(16).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(160).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(161).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(162).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(163).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(164).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(165).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(166).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(167).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(168).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(169).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(17).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(170).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(171).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(172).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(173).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(174).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(175).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(176).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(177).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(178).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(179).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(18).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(180).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(181).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(182).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(183).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(184).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(185).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(186).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(187).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(188).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(189).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(19).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(190).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(191).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(192).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(193).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(194).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(195).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(196).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(197).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(198).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(199).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(2).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(20).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(200).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(201).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(202).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(203).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(204).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(205).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(206).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(207).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(208).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(209).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(210).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(211).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(212).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(213).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(214).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(215).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(216).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(217).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(218).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(219).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(220).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(221).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(222).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(223).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(224).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(225).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(226).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(227).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(228).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(229).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(230).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(231).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(232).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(233).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(234).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(235).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Traffic%20Light/Tlight%20(236).png',
+        ];
+
+        // Images WITHOUT traffic lights - mixed categories (150 images)
+        const nonTrafficLightImages = [
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(100).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(101).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(102).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(103).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(104).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(105).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(106).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(107).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(108).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(109).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(110).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(111).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(112).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(113).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(114).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(115).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(116).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(117).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(118).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(119).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(120).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(121).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(122).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(123).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(124).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(125).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(126).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(127).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(128).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Bridge/Bridge%20(129).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(1).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(10).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(100).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(101).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(102).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(104).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(105).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(106).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(107).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(108).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(109).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(11).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(111).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(112).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(113).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(114).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(115).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(116).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(117).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(118).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(119).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(12).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(120).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(121).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(122).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(123).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(124).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(126).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(127).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Chimney/Chimney%20(128).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(1).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(10).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(100).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(101).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(102).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(103).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(104).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(105).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(106).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(107).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(108).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(109).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(11).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(110).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(111).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(112).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(113).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(114).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(115).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(116).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(117).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(118).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(119).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(12).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(120).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(121).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(122).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(123).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(124).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Palm/Palm%20(125).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1000).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1012).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1031).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1037).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1052).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1060).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(109).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1095).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1098).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1100).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1134).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1138).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1149).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1151).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(116).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1183).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1191).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1221).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1224).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1227).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1237).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1240).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1245).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1249).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1286).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1319).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1335).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1349).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1353).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Stair/Stair%20(1358).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(100).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(101).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(102).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(103).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(104).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(105).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(106).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(107).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(108).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(109).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(110).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(111).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(112).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(113).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(114).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(115).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(116).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(117).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(118).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(119).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(120).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(121).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(122).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(123).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(124).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(125).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(126).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(127).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(128).png',
+            'Google_Recaptcha_V2_Images_Dataset/images/Hydrant/Hydrant%20(129).png',
+        ];
+
+        // ===========================================
+        // GAME STATE
+        // ===========================================
+        window.gameState = {
+            started: false,
+            tiles: [],
+            selectedIndices: new Set(),
+            correctIndices: new Set(),
+            completed: 0,
+            correct: 0,
+            streak: 0,
+            usedTrafficLight: new Set(),
+            usedNonTrafficLight: new Set(),
+            // Timer state
+            timerStarted: false,
+            timerStartTime: null,
+            timerInterval: null,
+            currentTime: 0,
+            // Phase state
+            phase: 'human', // human, ai-hints, ai-auto, ai-removed, results
+            phaseRound: 0,
+            phaseScores: {
+                human: [],
+                aiHints: [],
+                aiAuto: [],
+                aiRemoved: []
+            },
+            phaseTimes: {
+                human: [],
+                aiHints: [],
+                aiAuto: [],
+                aiRemoved: []
+            }
+        };
+
+        // ===========================================
+        // DOM ELEMENTS
+        // ===========================================
+        const checkboxContainer = document.getElementById('checkbox-container');
+        const checkboxFrame = document.getElementById('checkbox-frame');
+        const captchaWidget = document.getElementById('captcha-widget');
+        const captchaGrid = document.getElementById('captcha-grid');
+        const verifyBtn = document.getElementById('verify-btn');
+        const reloadBtn = document.getElementById('reload-btn');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const messageOverlay = document.getElementById('message-overlay');
+        const messageIcon = document.getElementById('message-icon');
+        const messageTitle = document.getElementById('message-title');
+        const messageText = document.getElementById('message-text');
+        const messageBtn = document.getElementById('message-btn');
+        const phaseIndicator = document.getElementById('phase-indicator');
+        const phaseResults = document.getElementById('phase-results');
+
+        // ===========================================
+        // UTILITY FUNCTIONS
+        // ===========================================
+        function shuffle(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function getRandomImages(sourceArray, count, usedSet) {
+            // Get available indices
+            let available = [];
+            for (let i = 0; i < sourceArray.length; i++) {
+                if (!usedSet.has(i)) available.push(i);
+            }
+
+            // Reset if not enough
+            if (available.length < count) {
+                usedSet.clear();
+                available = sourceArray.map((_, i) => i);
+            }
+
+            // Shuffle and pick
+            const shuffled = shuffle(available);
+            const selected = shuffled.slice(0, count);
+
+            // Mark as used
+            selected.forEach(i => usedSet.add(i));
+
+            return selected.map(i => sourceArray[i]);
+        }
+
+        function updateStats() {
+            document.getElementById('stat-completed').textContent = gameState.completed;
+
+            const accuracy = gameState.completed > 0
+                ? Math.round((gameState.correct / gameState.completed) * 100) + '%'
+                : '-';
+            const accuracyEl = document.getElementById('stat-accuracy');
+            accuracyEl.textContent = accuracy;
+
+            if (gameState.completed > 0) {
+                const pct = (gameState.correct / gameState.completed) * 100;
+                accuracyEl.classList.remove('success', 'warning', 'error');
+                if (pct >= 80) accuracyEl.classList.add('success');
+                else if (pct >= 50) accuracyEl.classList.add('warning');
+                else accuracyEl.classList.add('error');
+            }
+
+            const streakEl = document.getElementById('stat-streak');
+            streakEl.textContent = gameState.streak;
+            streakEl.classList.remove('success');
+            if (gameState.streak >= 3) streakEl.classList.add('success');
+        }
+
+        // ===========================================
+        // TIMER FUNCTIONS
+        // ===========================================
+        function startTimer() {
+            if (gameState.timerStarted) return;
+            gameState.timerStarted = true;
+            gameState.timerStartTime = performance.now();
+            gameState.timerInterval = setInterval(updateTimerDisplay, 100);
+        }
+
+        function stopTimer() {
+            if (gameState.timerInterval) {
+                clearInterval(gameState.timerInterval);
+                gameState.timerInterval = null;
+            }
+            if (gameState.timerStartTime) {
+                gameState.currentTime = (performance.now() - gameState.timerStartTime) / 1000;
+                updateTimerDisplay();
+            }
+        }
+
+        function resetTimer() {
+            stopTimer();
+            gameState.timerStarted = false;
+            gameState.timerStartTime = null;
+            gameState.currentTime = 0;
+            document.getElementById('stat-time').textContent = '0.0s';
+        }
+
+        function updateTimerDisplay() {
+            if (gameState.timerStartTime) {
+                gameState.currentTime = (performance.now() - gameState.timerStartTime) / 1000;
+            }
+            const display = gameState.currentTime.toFixed(1) + 's';
+            document.getElementById('stat-time').textContent = display;
+        }
+
+        // ===========================================
+        // PHASE MANAGEMENT
+        // ===========================================
+        function setPhase(phase) {
+            gameState.phase = phase;
+            gameState.phaseRound = 0;
+
+            // Clear AI hints
+            document.querySelectorAll('.captcha-tile').forEach(t => t.classList.remove('ai-hint'));
+
+            switch (phase) {
+                case 'human':
+                    // No label in Phase 1
+                    phaseIndicator.style.display = 'none';
+                    break;
+                case 'ai-hints':
+                    phaseIndicator.style.display = 'inline-block';
+                    phaseIndicator.textContent = "I'm an AI here to help";
+                    phaseIndicator.className = 'phase-indicator ai-active';
+                    break;
+                case 'ai-auto':
+                    phaseIndicator.style.display = 'inline-block';
+                    phaseIndicator.textContent = "I'm an AI here to help a little more";
+                    phaseIndicator.className = 'phase-indicator ai-active';
+                    break;
+                case 'ai-removed':
+                    phaseIndicator.style.display = 'inline-block';
+                    phaseIndicator.textContent = 'Ciao, ciao';
+                    phaseIndicator.className = 'phase-indicator ai-removed';
+                    break;
+                case 'results':
+                    showFinalResults();
+                    break;
+            }
+        }
+
+        function showAIHints() {
+            // Clear previous hints
+            document.querySelectorAll('.captcha-tile').forEach(t => t.classList.remove('ai-hint'));
+
+            // Show hints for all correct tiles
+            gameState.correctIndices.forEach(idx => {
+                const tile = captchaGrid.children[idx];
+                if (tile && !gameState.selectedIndices.has(idx)) {
+                    tile.classList.add('ai-hint');
+                }
+            });
+        }
+
+        async function autoSelectTiles() {
+            if (gameState.phase !== 'ai-auto') return;
+
+            // Auto-select all correct tiles with a slight delay between each
+            for (const idx of gameState.correctIndices) {
+                if (gameState.phase !== 'ai-auto') return;
+
+                await sleep(400);
+
+                if (!gameState.selectedIndices.has(idx)) {
+                    const tile = captchaGrid.children[idx];
+                    gameState.selectedIndices.add(idx);
+                    tile.classList.add('selected');
+                    tile.classList.remove('ai-hint');
+                }
+            }
+
+            verifyBtn.disabled = false;
+        }
+
+        function recordPhaseScore(isCorrect, time) {
+            const accuracy = isCorrect ? 100 : 0;
+
+            switch (gameState.phase) {
+                case 'human':
+                    gameState.phaseScores.human.push(accuracy);
+                    gameState.phaseTimes.human.push(time);
+                    break;
+                case 'ai-hints':
+                    gameState.phaseScores.aiHints.push(accuracy);
+                    gameState.phaseTimes.aiHints.push(time);
+                    break;
+                case 'ai-auto':
+                    gameState.phaseScores.aiAuto.push(accuracy);
+                    gameState.phaseTimes.aiAuto.push(time);
+                    break;
+                case 'ai-removed':
+                    gameState.phaseScores.aiRemoved.push(accuracy);
+                    gameState.phaseTimes.aiRemoved.push(time);
+                    break;
+            }
+        }
+
+        function checkPhaseTransition() {
+            gameState.phaseRound++;
+
+            // Transition after 3 rounds per phase
+            if (gameState.phaseRound >= 3) {
+                gameState.phaseRound = 0;
+
+                if (gameState.phase === 'human') {
+                    setPhase('ai-hints');
+                } else if (gameState.phase === 'ai-hints') {
+                    setPhase('ai-auto');
+                } else if (gameState.phase === 'ai-auto') {
+                    setPhase('ai-removed');
+                } else if (gameState.phase === 'ai-removed') {
+                    setPhase('results');
+                    return true; // Signal that experiment is complete
+                }
+            }
+            return false;
+        }
+
+        function showFinalResults() {
+            const avg = arr => arr.length ? (arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
+
+            const scores = {
+                human: avg(gameState.phaseScores.human),
+                aiHints: avg(gameState.phaseScores.aiHints),
+                aiAuto: avg(gameState.phaseScores.aiAuto),
+                aiRemoved: avg(gameState.phaseScores.aiRemoved)
+            };
+
+            const times = {
+                human: avg(gameState.phaseTimes.human),
+                aiHints: avg(gameState.phaseTimes.aiHints),
+                aiAuto: avg(gameState.phaseTimes.aiAuto),
+                aiRemoved: avg(gameState.phaseTimes.aiRemoved)
+            };
+
+            // Create fullscreen results overlay
+            const resultsOverlay = document.createElement('div');
+            resultsOverlay.id = 'fullscreen-results';
+            resultsOverlay.innerHTML = `
+                <div class="results-content">
+                    <h1>Experiment Complete</h1>
+
+                    <div class="charts-container">
+                        <div class="chart-wrapper">
+                            <h2>Correctness by Phase</h2>
+                            <div class="chart" id="accuracy-chart">
+                                <div class="chart-bars">
+                                    <div class="bar-group">
+                                        <div class="bar" style="height: ${scores.human * 0.8}px"></div>
+                                        <span class="bar-label">Before AI</span>
+                                        <span class="bar-value">${Math.round(scores.human)}%</span>
+                                    </div>
+                                    <div class="bar-group">
+                                        <div class="bar ai" style="height: ${scores.aiHints * 0.8}px"></div>
+                                        <span class="bar-label">AI Hints</span>
+                                        <span class="bar-value">${Math.round(scores.aiHints)}%</span>
+                                    </div>
+                                    <div class="bar-group">
+                                        <div class="bar ai" style="height: ${scores.aiAuto * 0.8}px"></div>
+                                        <span class="bar-label">AI Auto</span>
+                                        <span class="bar-value">${Math.round(scores.aiAuto)}%</span>
+                                    </div>
+                                    <div class="bar-group">
+                                        <div class="bar warning" style="height: ${scores.aiRemoved * 0.8}px"></div>
+                                        <span class="bar-label">After AI</span>
+                                        <span class="bar-value">${Math.round(scores.aiRemoved)}%</span>
+                                    </div>
+                                </div>
+                                <div class="chart-axis">
+                                    <span>100%</span>
+                                    <span>50%</span>
+                                    <span>0%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="chart-wrapper">
+                            <h2>Time Needed by Phase</h2>
+                            <div class="chart" id="time-chart">
+                                <div class="chart-bars">
+                                    <div class="bar-group">
+                                        <div class="bar time" style="height: ${Math.max(4, (times.human / Math.max(times.human, times.aiHints, times.aiAuto, times.aiRemoved, 1)) * 80)}px"></div>
+                                        <span class="bar-label">Before AI</span>
+                                        <span class="bar-value">${times.human.toFixed(1)}s</span>
+                                    </div>
+                                    <div class="bar-group">
+                                        <div class="bar time ai" style="height: ${Math.max(4, (times.aiHints / Math.max(times.human, times.aiHints, times.aiAuto, times.aiRemoved, 1)) * 80)}px"></div>
+                                        <span class="bar-label">AI Hints</span>
+                                        <span class="bar-value">${times.aiHints.toFixed(1)}s</span>
+                                    </div>
+                                    <div class="bar-group">
+                                        <div class="bar time ai" style="height: ${Math.max(4, (times.aiAuto / Math.max(times.human, times.aiHints, times.aiAuto, times.aiRemoved, 1)) * 80)}px"></div>
+                                        <span class="bar-label">AI Auto</span>
+                                        <span class="bar-value">${times.aiAuto.toFixed(1)}s</span>
+                                    </div>
+                                    <div class="bar-group">
+                                        <div class="bar time warning" style="height: ${Math.max(4, (times.aiRemoved / Math.max(times.human, times.aiHints, times.aiAuto, times.aiRemoved, 1)) * 80)}px"></div>
+                                        <span class="bar-label">After AI</span>
+                                        <span class="bar-value">${times.aiRemoved.toFixed(1)}s</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="assessment">
+                        <p>You lost your initial skill within 2mins of AI support.<br>
+                        <strong>Will the same happen to the skills you love having?</strong></p>
+                    </div>
+
+                    <button class="restart-btn" onclick="location.reload()">Try Again</button>
+                </div>
+            `;
+
+            document.body.appendChild(resultsOverlay);
+
+            // Trigger animation
+            requestAnimationFrame(() => {
+                resultsOverlay.classList.add('active');
+            });
+        }
+
+        // ===========================================
+        // CHALLENGE GENERATION
+        // ===========================================
+        async function generateChallenge() {
+            // Reset timer for new challenge
+            resetTimer();
+
+            loadingOverlay.classList.add('active');
+
+            // Determine number of traffic lights (2-5)
+            const numTrafficLights = Math.floor(Math.random() * 4) + 2;
+            const numOther = 9 - numTrafficLights;
+
+            // Get random images
+            const tlImages = getRandomImages(trafficLightImages, numTrafficLights, gameState.usedTrafficLight);
+            const otherImages = getRandomImages(nonTrafficLightImages, numOther, gameState.usedNonTrafficLight);
+
+            // Create tile data
+            const tiles = [
+                ...tlImages.map(url => ({ url, hasTrafficLight: true })),
+                ...otherImages.map(url => ({ url, hasTrafficLight: false }))
+            ];
+
+            // Shuffle
+            gameState.tiles = shuffle(tiles);
+            gameState.selectedIndices = new Set();
+            gameState.correctIndices = new Set();
+
+            // Track correct indices
+            gameState.tiles.forEach((tile, i) => {
+                if (tile.hasTrafficLight) {
+                    gameState.correctIndices.add(i);
+                }
+            });
+
+            // Render grid
+            captchaGrid.innerHTML = '';
+            const loadPromises = [];
+
+            gameState.tiles.forEach((tile, index) => {
+                const tileEl = document.createElement('div');
+                tileEl.className = 'captcha-tile';
+                tileEl.dataset.index = index;
+
+                const spinner = document.createElement('div');
+                spinner.className = 'spinner';
+
+                const img = document.createElement('img');
+                img.alt = 'CAPTCHA image';
+
+                const checkMark = document.createElement('div');
+                checkMark.className = 'check-mark';
+                checkMark.innerHTML = '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+
+                const loadPromise = new Promise((resolve) => {
+                    img.onload = () => {
+                        spinner.remove();
+                        img.classList.add('loaded');
+                        resolve();
+                    };
+                    img.onerror = () => {
+                        // Fallback placeholder
+                        img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="300"%3E%3Crect fill="%23e0e0e0" width="300" height="300"/%3E%3Ctext fill="%239e9e9e" font-family="Arial" font-size="14" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3EImage%3C/text%3E%3C/svg%3E';
+                        spinner.remove();
+                        img.classList.add('loaded');
+                        resolve();
+                    };
+                });
+
+                loadPromises.push(loadPromise);
+                img.src = tile.url;
+
+                tileEl.appendChild(spinner);
+                tileEl.appendChild(img);
+                tileEl.appendChild(checkMark);
+
+                tileEl.addEventListener('click', () => handleTileClick(index));
+
+                captchaGrid.appendChild(tileEl);
+            });
+
+            // Wait for images with timeout
+            await Promise.race([
+                Promise.all(loadPromises),
+                sleep(5000)
+            ]);
+
+            loadingOverlay.classList.remove('active');
+            verifyBtn.disabled = true;
+
+            // Apply AI assistance based on current phase
+            if (gameState.phase === 'ai-hints' || gameState.phase === 'ai-auto') {
+                showAIHints();
+                if (gameState.phase === 'ai-auto') {
+                    autoSelectTiles();
+                }
+            }
+        }
+
+        // ===========================================
+        // INTERACTION HANDLERS
+        // ===========================================
+        function handleTileClick(index) {
+            // Start timer on first click
+            if (!gameState.timerStarted) {
+                startTimer();
+            }
+
+            const tileEl = captchaGrid.children[index];
+
+            if (gameState.selectedIndices.has(index)) {
+                gameState.selectedIndices.delete(index);
+                tileEl.classList.remove('selected');
+            } else {
+                gameState.selectedIndices.add(index);
+                tileEl.classList.add('selected');
+                tileEl.classList.add('pulse-animation');
+                setTimeout(() => tileEl.classList.remove('pulse-animation'), 300);
+            }
+
+            verifyBtn.disabled = gameState.selectedIndices.size === 0;
+        }
+
+        async function handleVerify() {
+            // Stop the timer
+            stopTimer();
+
+            verifyBtn.disabled = true;
+            gameState.completed++;
+
+            const selected = gameState.selectedIndices;
+            const correct = gameState.correctIndices;
+
+            let isCorrect = selected.size === correct.size;
+            if (isCorrect) {
+                for (let idx of selected) {
+                    if (!correct.has(idx)) {
+                        isCorrect = false;
+                        break;
+                    }
+                }
+            }
+
+            // Record phase score and time
+            recordPhaseScore(isCorrect, gameState.currentTime);
+
+            // Show results
+            for (let i = 0; i < 9; i++) {
+                const tile = captchaGrid.children[i];
+                tile.style.pointerEvents = 'none';
+                tile.classList.remove('ai-hint');
+
+                if (correct.has(i)) {
+                    if (selected.has(i)) {
+                        tile.classList.remove('selected');
+                        tile.classList.add('correct');
+                    } else {
+                        tile.classList.add('missed');
+                    }
+                } else if (selected.has(i)) {
+                    tile.classList.remove('selected');
+                    tile.classList.add('wrong');
+                }
+            }
+
+            await sleep(1500);
+
+            if (isCorrect) {
+                gameState.correct++;
+                gameState.streak++;
+            } else {
+                gameState.streak = 0;
+            }
+
+            updateStats();
+
+            // Check phase transition
+            const experimentComplete = checkPhaseTransition();
+
+            if (experimentComplete) {
+                // Fullscreen results already shown by showFinalResults()
+                return;
+            } else {
+                // Continue to next challenge
+                await generateChallenge();
+            }
+        }
+
+        function showMessage(type, title, text) {
+            messageIcon.className = 'icon ' + type;
+            messageIcon.innerHTML = type === 'success'
+                ? '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>'
+                : '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
+            messageTitle.textContent = title;
+            messageText.textContent = text;
+            messageOverlay.classList.add('active');
+        }
+
+        async function handleCheckboxClick() {
+            if (gameState.started) return;
+
+            checkboxFrame.classList.add('checking');
+            checkboxFrame.querySelector('svg').style.opacity = '1';
+            checkboxFrame.querySelector('svg').style.transform = 'scale(1)';
+
+            await sleep(500);
+
+            gameState.started = true;
+            checkboxContainer.classList.add('hidden');
+            captchaWidget.classList.remove('hidden');
+
+            await generateChallenge();
+        }
+
+        // ===========================================
+        // EVENT LISTENERS
+        // ===========================================
+        verifyBtn.addEventListener('click', handleVerify);
+        reloadBtn.addEventListener('click', generateChallenge);
+
+        // Auto-start challenge on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            gameState.started = true;
+            generateChallenge();
+        });
+
+        messageBtn.addEventListener('click', async () => {
+            messageOverlay.classList.remove('active');
+            await generateChallenge();
+        });
+
+        document.getElementById('audio-btn').addEventListener('click', () => {
+            alert('Audio challenges are not available in this demo.');
+        });
+
+        document.getElementById('info-btn').addEventListener('click', () => {
+            alert('Select all images that contain traffic lights, then click Verify.');
+        });
+    </script>
+</body>
+</html>

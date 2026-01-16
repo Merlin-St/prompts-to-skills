@@ -1,0 +1,2318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SLIP — Skills, Loss, Intelligence, Progress</title>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-dark: #0a0a0c;
+            --bg-card: #141418;
+            --bg-hover: #1a1a20;
+            --text-primary: #e8e8e8;
+            --text-secondary: #888;
+            --text-muted: #555;
+            --accent-blue: #4a9eff;
+            --accent-green: #22c55e;
+            --accent-red: #ef4444;
+            --accent-orange: #f97316;
+            --accent-purple: #a855f7;
+            --accent-cyan: #06b6d4;
+            --border: #2a2a30;
+        }
+
+        body {
+            font-family: 'IBM Plex Mono', monospace;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Navigation */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: rgba(10, 10, 12, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+            padding: 0 2rem;
+        }
+
+        .nav-inner {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            height: 60px;
+            gap: 2rem;
+        }
+
+        .logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 4px;
+            background: linear-gradient(135deg, var(--accent-red), var(--accent-orange));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .nav-tab {
+            padding: 0.5rem 1rem;
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-secondary);
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .nav-tab:hover {
+            color: var(--text-primary);
+            background: var(--bg-hover);
+        }
+
+        .nav-tab.active {
+            color: var(--text-primary);
+            background: var(--bg-card);
+            border-color: var(--border);
+        }
+
+        /* Main Content */
+        .main {
+            padding-top: 80px;
+            min-height: 100vh;
+        }
+
+        .section {
+            display: none;
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        /* Game Section */
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .game-header {
+            text-align: center;
+        }
+
+        .game-header h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .phase-indicator {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .phase-indicator.ai-active {
+            border-color: var(--accent-green);
+            color: var(--accent-green);
+        }
+
+        .phase-indicator.ai-removed {
+            border-color: var(--accent-red);
+            color: var(--accent-red);
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
+            max-width: 540px;
+        }
+
+        .game-tile {
+            aspect-ratio: 1;
+            width: 170px;
+            background: var(--bg-card);
+            border: 3px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .game-tile:hover {
+            border-color: var(--text-muted);
+            transform: scale(1.02);
+        }
+
+        .game-tile.selected {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 20px rgba(74, 158, 255, 0.4);
+        }
+
+        .game-tile.correct {
+            border-color: var(--accent-green);
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.4);
+        }
+
+        .game-tile.wrong {
+            border-color: var(--accent-red);
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+        }
+
+        .game-tile.ai-hint {
+            border-color: var(--accent-green);
+            box-shadow: 0 0 25px rgba(34, 197, 94, 0.5);
+        }
+
+        .game-tile.ai-hint::after {
+            content: 'AI SUGGESTS';
+            position: absolute;
+            bottom: 4px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.55rem;
+            color: var(--accent-green);
+            background: rgba(0,0,0,0.7);
+            padding: 2px 6px;
+            border-radius: 3px;
+            z-index: 10;
+        }
+
+        .game-tile svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .selection-number {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 24px;
+            height: 24px;
+            background: var(--accent-blue);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: white;
+            z-index: 10;
+        }
+
+        .traffic-light-glow {
+            filter: drop-shadow(0 0 8px #22c55e) drop-shadow(0 0 15px #22c55e);
+        }
+
+        .game-instruction {
+            text-align: center;
+            padding: 1rem 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            max-width: 500px;
+            margin-bottom: 1rem;
+        }
+
+        .game-instruction p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .game-instruction strong {
+            color: var(--accent-green);
+        }
+
+        .game-stats {
+            display: flex;
+            gap: 2rem;
+            text-align: center;
+        }
+
+        .stat {
+            padding: 1rem 2rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 600;
+            color: var(--accent-blue);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        .game-start-btn {
+            padding: 1rem 3rem;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            border: none;
+            color: white;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .game-start-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(74, 158, 255, 0.3);
+        }
+
+        .game-message {
+            text-align: center;
+            padding: 2rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            max-width: 500px;
+        }
+
+        .game-message h2 {
+            font-family: 'Playfair Display', serif;
+            margin-bottom: 1rem;
+            color: var(--accent-red);
+        }
+
+        /* Counter Section */
+        .counter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .counter-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .counter-card:hover {
+            border-color: var(--text-muted);
+            transform: translateY(-2px);
+        }
+
+        .counter-card:hover .trend-tooltip {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .counter-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .counter-title {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .counter-value {
+            font-size: 2rem;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .counter-rate {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .counter-rate span {
+            color: var(--accent-green);
+        }
+
+        .hover-hint {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .counter-card:hover .hover-hint {
+            opacity: 1;
+        }
+
+        /* Trend Tooltip */
+        .trend-tooltip {
+            position: absolute;
+            bottom: calc(100% + 10px);
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            width: 320px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+            z-index: 100;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+
+        .trend-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 8px solid transparent;
+            border-top-color: var(--border);
+        }
+
+        .trend-title {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+        }
+
+        .trend-chart {
+            height: 100px;
+            display: flex;
+            align-items: flex-end;
+            gap: 2px;
+            margin-bottom: 0.5rem;
+        }
+
+        .trend-bar {
+            flex: 1;
+            background: var(--accent-blue);
+            border-radius: 2px 2px 0 0;
+            position: relative;
+            transition: height 0.3s;
+        }
+
+        .trend-bar.human {
+            background: var(--accent-green);
+        }
+
+        .trend-bar.ai {
+            background: var(--accent-red);
+        }
+
+        .trend-legend {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+
+        .trend-legend span {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .legend-dot.human { background: var(--accent-green); }
+        .legend-dot.ai { background: var(--accent-red); }
+
+        .trend-years {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        /* Total Counter */
+        .total-counter {
+            grid-column: 1 / -1;
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(249, 115, 22, 0.1));
+            border-color: rgba(239, 68, 68, 0.3);
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .total-counter .counter-value {
+            font-size: 3rem;
+            background: linear-gradient(135deg, var(--accent-red), var(--accent-orange));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Challenge Section */
+        .challenge-intro {
+            text-align: center;
+            max-width: 700px;
+            margin: 0 auto 3rem;
+        }
+
+        .challenge-intro h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .challenge-intro p {
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .category-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+
+        .category-tab {
+            padding: 0.5rem 1rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .category-tab:hover {
+            border-color: var(--text-muted);
+            color: var(--text-primary);
+        }
+
+        .category-tab.active {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+        }
+
+        .skills-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1rem;
+        }
+
+        .skill-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .skill-card:hover {
+            border-color: var(--accent-blue);
+            transform: translateY(-2px);
+        }
+
+        .skill-card.human-advantage {
+            border-left: 3px solid var(--accent-green);
+        }
+
+        .skill-card.ai-advantage {
+            border-left: 3px solid var(--accent-red);
+        }
+
+        .skill-card.contested {
+            border-left: 3px solid var(--accent-orange);
+        }
+
+        .skill-emoji {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .skill-name {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .skill-desc {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+        }
+
+        .skill-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.7rem;
+        }
+
+        .status-bar {
+            flex: 1;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            overflow: hidden;
+            display: flex;
+        }
+
+        .status-human {
+            background: var(--accent-green);
+            transition: width 0.3s;
+        }
+
+        .status-ai {
+            background: var(--accent-red);
+            transition: width 0.3s;
+        }
+
+        .status-label {
+            color: var(--text-muted);
+            min-width: 60px;
+            text-align: right;
+        }
+
+        /* Challenge Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            padding: 2rem;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            font-family: 'Playfair Display', serif;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .challenge-prompt {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .challenge-prompt h3 {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+        }
+
+        .challenge-input {
+            width: 100%;
+            padding: 1rem;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 1rem;
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .challenge-input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .challenge-timer {
+            text-align: center;
+            font-size: 2rem;
+            font-weight: 600;
+            color: var(--accent-orange);
+            margin-bottom: 1rem;
+        }
+
+        .challenge-submit {
+            width: 100%;
+            padding: 1rem;
+            background: var(--accent-blue);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .challenge-submit:hover {
+            background: var(--accent-purple);
+        }
+
+        .challenge-result {
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .result-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .result-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .result-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin: 1.5rem 0;
+            text-align: left;
+        }
+
+        .result-side {
+            padding: 1rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .result-side h4 {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .result-side.winner {
+            border-color: var(--accent-green);
+        }
+
+        /* Submit New Skill */
+        .submit-skill-section {
+            margin-top: 3rem;
+            padding: 2rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .submit-skill-section h3 {
+            font-family: 'Playfair Display', serif;
+            margin-bottom: 0.5rem;
+        }
+
+        .submit-skill-section p {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .submit-form {
+            display: flex;
+            gap: 1rem;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .submit-input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .submit-input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .submit-btn {
+            padding: 0.75rem 1.5rem;
+            background: var(--accent-green);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-family: 'IBM Plex Mono', monospace;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .submit-btn:hover {
+            background: #16a34a;
+        }
+
+        /* Results Section */
+        .results-container {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .results-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .results-header h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .results-chart {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .bar-chart {
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-end;
+            height: 200px;
+            padding: 1rem 0;
+        }
+
+        .bar-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .bar {
+            width: 60px;
+            background: var(--accent-blue);
+            border-radius: 4px 4px 0 0;
+            transition: height 0.5s;
+        }
+
+        .bar.before { background: var(--accent-blue); }
+        .bar.with-ai { background: var(--accent-green); }
+        .bar.after { background: var(--accent-red); }
+
+        .bar-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .decay-stat {
+            text-align: center;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(249, 115, 22, 0.1));
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+
+        .decay-value {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--accent-red);
+        }
+
+        .decay-label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .insight-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .insight-box h3 {
+            font-family: 'Playfair Display', serif;
+            margin-bottom: 0.75rem;
+            color: var(--accent-orange);
+        }
+
+        .insight-box p {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            font-size: 0.9rem;
+        }
+
+        .continue-btn {
+            display: block;
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .continue-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(74, 158, 255, 0.3);
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 3rem 2rem;
+            border-top: 1px solid var(--border);
+            margin-top: 4rem;
+        }
+
+        .footer p {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        .footer a {
+            color: var(--accent-blue);
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-inner {
+                flex-direction: column;
+                height: auto;
+                padding: 1rem 0;
+                gap: 1rem;
+            }
+
+            .game-tile {
+                width: 80px;
+            }
+
+            .game-stats {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .counter-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .trend-tooltip {
+                width: 280px;
+            }
+
+            .submit-form {
+                flex-direction: column;
+            }
+
+            .result-comparison {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-inner">
+            <div class="logo">SLIP</div>
+            <div class="nav-tabs">
+                <button class="nav-tab active" data-section="game">Skill Decay</button>
+                <button class="nav-tab" data-section="counter">Live Counter</button>
+                <button class="nav-tab" data-section="challenge">Challenge AI</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main">
+        <!-- GAME SECTION -->
+        <section id="game" class="section active">
+            <div class="game-container">
+                <div class="game-header">
+                    <h1>Tap the traffic lights in order</h1>
+                    <div class="phase-indicator" id="phase-indicator">Click Start to Begin</div>
+                </div>
+
+                <div class="game-instruction" id="game-instruction">
+                    <p>Watch the street scenes. Some contain <strong>traffic lights</strong> that will turn green one by one.
+                    Then tap the images with traffic lights <strong>in the order they lit up</strong>.</p>
+                </div>
+
+                <div class="game-board" id="game-board">
+                    <!-- 9 street scene tiles will be generated by JS -->
+                </div>
+
+                <div class="game-stats">
+                    <div class="stat">
+                        <div class="stat-value" id="score">0</div>
+                        <div class="stat-label">SCORE</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" id="accuracy">0%</div>
+                        <div class="stat-label">ACCURACY</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" id="round">1</div>
+                        <div class="stat-label">ROUND</div>
+                    </div>
+                </div>
+
+                <button class="game-start-btn" id="start-btn">Start Experience</button>
+            </div>
+        </section>
+
+        <!-- COUNTER SECTION -->
+        <section id="counter" class="section">
+            <div class="counter-grid">
+                <div class="counter-card" data-metric="queries">
+                    <span class="hover-hint">Hover for trend</span>
+                    <div class="counter-icon">💬</div>
+                    <div class="counter-title">AI Queries Answered</div>
+                    <div class="counter-value" id="counter-queries">0</div>
+                    <div class="counter-rate">+<span id="rate-queries">29,000</span>/sec</div>
+                    <div class="trend-tooltip">
+                        <div class="trend-title">Human vs AI: Information Retrieval (2015-2025)</div>
+                        <div class="trend-chart" id="trend-queries"></div>
+                        <div class="trend-years">
+                            <span>2015</span><span>2025</span>
+                        </div>
+                        <div class="trend-legend">
+                            <span><div class="legend-dot human"></div>Human Search</span>
+                            <span><div class="legend-dot ai"></div>AI Queries</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="counter-card" data-metric="prices">
+                    <span class="hover-hint">Hover for trend</span>
+                    <div class="counter-icon">💰</div>
+                    <div class="counter-title">Prices Set by Algorithms</div>
+                    <div class="counter-value" id="counter-prices">0</div>
+                    <div class="counter-rate">+<span id="rate-prices">29</span>/sec</div>
+                    <div class="trend-tooltip">
+                        <div class="trend-title">Human vs AI: Pricing Decisions (2015-2025)</div>
+                        <div class="trend-chart" id="trend-prices"></div>
+                        <div class="trend-years">
+                            <span>2015</span><span>2025</span>
+                        </div>
+                        <div class="trend-legend">
+                            <span><div class="legend-dot human"></div>Human Pricing</span>
+                            <span><div class="legend-dot ai"></div>Algorithmic</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="counter-card" data-metric="routes">
+                    <span class="hover-hint">Hover for trend</span>
+                    <div class="counter-icon">🗺️</div>
+                    <div class="counter-title">Routes Chosen by GPS</div>
+                    <div class="counter-value" id="counter-routes">0</div>
+                    <div class="counter-rate">+<span id="rate-routes">1,150</span>/sec</div>
+                    <div class="trend-tooltip">
+                        <div class="trend-title">Human vs AI: Navigation (2015-2025)</div>
+                        <div class="trend-chart" id="trend-routes"></div>
+                        <div class="trend-years">
+                            <span>2015</span><span>2025</span>
+                        </div>
+                        <div class="trend-legend">
+                            <span><div class="legend-dot human"></div>Mental Maps</span>
+                            <span><div class="legend-dot ai"></div>GPS Navigation</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="counter-card" data-metric="recommendations">
+                    <span class="hover-hint">Hover for trend</span>
+                    <div class="counter-icon">📺</div>
+                    <div class="counter-title">Content Recommendations</div>
+                    <div class="counter-value" id="counter-recommendations">0</div>
+                    <div class="counter-rate">+<span id="rate-recommendations">58,000</span>/sec</div>
+                    <div class="trend-tooltip">
+                        <div class="trend-title">Human vs AI: Content Discovery (2015-2025)</div>
+                        <div class="trend-chart" id="trend-recommendations"></div>
+                        <div class="trend-years">
+                            <span>2015</span><span>2025</span>
+                        </div>
+                        <div class="trend-legend">
+                            <span><div class="legend-dot human"></div>Human Choice</span>
+                            <span><div class="legend-dot ai"></div>Algorithm</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="counter-card" data-metric="companions">
+                    <span class="hover-hint">Hover for trend</span>
+                    <div class="counter-icon">🤖</div>
+                    <div class="counter-title">AI Companion Messages</div>
+                    <div class="counter-value" id="counter-companions">0</div>
+                    <div class="counter-rate">+<span id="rate-companions">1,800</span>/sec</div>
+                    <div class="trend-tooltip">
+                        <div class="trend-title">Human vs AI: Emotional Support (2015-2025)</div>
+                        <div class="trend-chart" id="trend-companions"></div>
+                        <div class="trend-years">
+                            <span>2015</span><span>2025</span>
+                        </div>
+                        <div class="trend-legend">
+                            <span><div class="legend-dot human"></div>Human Friends</span>
+                            <span><div class="legend-dot ai"></div>AI Companions</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="counter-card" data-metric="code">
+                    <span class="hover-hint">Hover for trend</span>
+                    <div class="counter-icon">💻</div>
+                    <div class="counter-title">Lines of Code Generated</div>
+                    <div class="counter-value" id="counter-code">0</div>
+                    <div class="counter-rate">+<span id="rate-code">12,000</span>/sec</div>
+                    <div class="trend-tooltip">
+                        <div class="trend-title">Human vs AI: Code Writing (2015-2025)</div>
+                        <div class="trend-chart" id="trend-code"></div>
+                        <div class="trend-years">
+                            <span>2015</span><span>2025</span>
+                        </div>
+                        <div class="trend-legend">
+                            <span><div class="legend-dot human"></div>Human Written</span>
+                            <span><div class="legend-dot ai"></div>AI Generated</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="counter-card" data-metric="content">
+                    <span class="hover-hint">Hover for trend</span>
+                    <div class="counter-icon">📝</div>
+                    <div class="counter-title">AI-Generated Content Online</div>
+                    <div class="counter-value" id="counter-content">0</div>
+                    <div class="counter-rate">+<span id="rate-content">4,200</span>/sec</div>
+                    <div class="trend-tooltip">
+                        <div class="trend-title">Human vs AI: Internet Content (2015-2025)</div>
+                        <div class="trend-chart" id="trend-content"></div>
+                        <div class="trend-years">
+                            <span>2015</span><span>2025</span>
+                        </div>
+                        <div class="trend-legend">
+                            <span><div class="legend-dot human"></div>Human Created</span>
+                            <span><div class="legend-dot ai"></div>AI Generated</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="counter-card" data-metric="translations">
+                    <span class="hover-hint">Hover for trend</span>
+                    <div class="counter-icon">🌍</div>
+                    <div class="counter-title">Translations Performed</div>
+                    <div class="counter-value" id="counter-translations">0</div>
+                    <div class="counter-rate">+<span id="rate-translations">5,800</span>/sec</div>
+                    <div class="trend-tooltip">
+                        <div class="trend-title">Human vs AI: Translation (2015-2025)</div>
+                        <div class="trend-chart" id="trend-translations"></div>
+                        <div class="trend-years">
+                            <span>2015</span><span>2025</span>
+                        </div>
+                        <div class="trend-legend">
+                            <span><div class="legend-dot human"></div>Human Translators</span>
+                            <span><div class="legend-dot ai"></div>Machine Translation</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="counter-card" data-metric="images">
+                    <span class="hover-hint">Hover for trend</span>
+                    <div class="counter-icon">🎨</div>
+                    <div class="counter-title">AI Images Created</div>
+                    <div class="counter-value" id="counter-images">0</div>
+                    <div class="counter-rate">+<span id="rate-images">850</span>/sec</div>
+                    <div class="trend-tooltip">
+                        <div class="trend-title">Human vs AI: Image Creation (2015-2025)</div>
+                        <div class="trend-chart" id="trend-images"></div>
+                        <div class="trend-years">
+                            <span>2015</span><span>2025</span>
+                        </div>
+                        <div class="trend-legend">
+                            <span><div class="legend-dot human"></div>Human Artists</span>
+                            <span><div class="legend-dot ai"></div>AI Generation</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="counter-card" data-metric="decisions">
+                    <span class="hover-hint">Hover for trend</span>
+                    <div class="counter-icon">⚖️</div>
+                    <div class="counter-title">Business Decisions Automated</div>
+                    <div class="counter-value" id="counter-decisions">0</div>
+                    <div class="counter-rate">+<span id="rate-decisions">340</span>/sec</div>
+                    <div class="trend-tooltip">
+                        <div class="trend-title">Human vs AI: Business Decisions (2015-2025)</div>
+                        <div class="trend-chart" id="trend-decisions"></div>
+                        <div class="trend-years">
+                            <span>2015</span><span>2025</span>
+                        </div>
+                        <div class="trend-legend">
+                            <span><div class="legend-dot human"></div>Human Judgment</span>
+                            <span><div class="legend-dot ai"></div>AI Systems</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="counter-card total-counter">
+                    <div class="counter-title">TOTAL HUMAN DECISIONS DELEGATED TO AI TODAY</div>
+                    <div class="counter-value" id="counter-total">0</div>
+                    <div class="counter-rate">+<span id="rate-total">113,168</span>/sec globally</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CHALLENGE SECTION -->
+        <section id="challenge" class="section">
+            <div class="challenge-intro">
+                <h1>Which skill would you like to keep?</h1>
+                <p>AI is getting better at everything. Choose a domain and compete.
+                   See where humans still have an edge—and where we've already lost.</p>
+            </div>
+
+            <div class="category-tabs">
+                <button class="category-tab active" data-category="all">All Skills</button>
+                <button class="category-tab" data-category="cognitive">Cognitive</button>
+                <button class="category-tab" data-category="creative">Creative</button>
+                <button class="category-tab" data-category="physical">Physical</button>
+                <button class="category-tab" data-category="social">Social</button>
+                <button class="category-tab" data-category="technical">Technical</button>
+                <button class="category-tab" data-category="memory">Memory</button>
+                <button class="category-tab" data-category="judgment">Judgment</button>
+            </div>
+
+            <div class="skills-grid" id="skills-grid">
+                <!-- Skills will be populated by JavaScript -->
+            </div>
+
+            <div class="submit-skill-section">
+                <h3>Think humans are better at something?</h3>
+                <p>Suggest a skill you believe AI can't match. We'll add it to the challenge arena.</p>
+                <div class="submit-form">
+                    <input type="text" class="submit-input" id="new-skill-input" placeholder="e.g., Understanding sarcasm, Physical comedy...">
+                    <button class="submit-btn" id="submit-skill-btn">Submit Skill</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- RESULTS SECTION (shown after game) -->
+        <section id="results" class="section">
+            <div class="results-container">
+                <div class="results-header">
+                    <h1>Your Skill Decay</h1>
+                    <p style="color: var(--text-secondary);">AI assistance was removed. Here's what happened.</p>
+                </div>
+
+                <div class="results-chart">
+                    <div class="bar-chart" id="results-bar-chart">
+                        <div class="bar-group">
+                            <div class="bar before" id="bar-before"></div>
+                            <div class="bar-label">Before AI</div>
+                        </div>
+                        <div class="bar-group">
+                            <div class="bar with-ai" id="bar-with-ai"></div>
+                            <div class="bar-label">With AI</div>
+                        </div>
+                        <div class="bar-group">
+                            <div class="bar after" id="bar-after"></div>
+                            <div class="bar-label">After AI Removed</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="decay-stat">
+                    <div class="decay-value" id="decay-percentage">-0%</div>
+                    <div class="decay-label">Your performance dropped after AI was removed</div>
+                </div>
+
+                <div class="insight-box">
+                    <h3>The Boiling Frog</h3>
+                    <p>You just experienced skill decay in under 2 minutes. In real life, this happens over months and years with GPS (navigation), calculators (mental math), spell-check (spelling), and autocomplete (memory). Each delegation is small and reasonable. The aggregate effect is not.</p>
+                </div>
+
+                <div class="insight-box">
+                    <h3>What Comes Next?</h3>
+                    <p>AI beat you at a simple pattern game. But it's also beating humans at chess, Go, protein folding, legal research, medical diagnosis, and creative writing. The question isn't whether AI will be better—it's which skills you want to keep.</p>
+                </div>
+
+                <button class="continue-btn" id="continue-to-challenge">
+                    Challenge AI in Your Domain →
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <!-- Challenge Modal -->
+    <div class="modal-overlay" id="challenge-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modal-skill-name">Mental Math</h2>
+                <button class="modal-close" id="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- Challenge content populated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>SLIP — Skills, Loss, Intelligence, Progress</p>
+        <p style="margin-top: 0.5rem;">Based on research by <a href="https://arxiv.org/abs/2503.02546" target="_blank">Kulveit et al., 2025</a></p>
+    </footer>
+
+    <script>
+        // ===================
+        // NAVIGATION
+        // ===================
+        const navTabs = document.querySelectorAll('.nav-tab');
+        const sections = document.querySelectorAll('.section');
+
+        navTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetSection = tab.dataset.section;
+
+                navTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+
+                sections.forEach(s => s.classList.remove('active'));
+                document.getElementById(targetSection).classList.add('active');
+            });
+        });
+
+        function showSection(sectionId) {
+            navTabs.forEach(t => {
+                t.classList.toggle('active', t.dataset.section === sectionId);
+            });
+            sections.forEach(s => s.classList.remove('active'));
+            document.getElementById(sectionId).classList.add('active');
+        }
+
+        // ===================
+        // GAME LOGIC - CAPTCHA-style Traffic Light Game
+        // ===================
+
+        // 9 street scene SVGs - 5 have traffic lights, 4 don't
+        const streetScenes = [
+            // Scene 0: Intersection with traffic light (has light)
+            { hasLight: true, svg: `<svg viewBox="0 0 170 170" xmlns="http://www.w3.org/2000/svg">
+                <rect fill="#1a1a2e" width="170" height="170"/>
+                <rect fill="#2d2d44" x="0" y="100" width="170" height="70"/>
+                <rect fill="#363650" x="70" y="0" width="35" height="100"/>
+                <rect fill="#363650" x="0" y="60" width="70" height="25"/>
+                <rect fill="#363650" x="105" y="60" width="65" height="25"/>
+                <rect fill="#ffeb3b" x="85" y="100" width="3" height="70" opacity="0.3"/>
+                <rect fill="#4a4a6a" x="20" y="110" width="30" height="50" rx="2"/>
+                <rect fill="#87ceeb" x="25" y="115" width="8" height="12" opacity="0.5"/>
+                <rect fill="#87ceeb" x="37" y="115" width="8" height="12" opacity="0.5"/>
+                <rect fill="#4a4a6a" x="120" y="115" width="35" height="45" rx="2"/>
+                <rect fill="#87ceeb" x="125" y="120" width="10" height="15" opacity="0.5"/>
+                <rect fill="#555" x="25" y="45" width="4" height="55"/>
+                <rect fill="#333" x="20" y="20" width="14" height="30" rx="2"/>
+                <circle id="light-0" fill="#333" cx="27" cy="28" r="4"/>
+                <circle fill="#333" cx="27" cy="38" r="4"/>
+                <circle fill="#333" cx="27" cy="48" r="4"/>
+                <circle fill="#666" cx="60" y="130" r="8"/>
+                <circle fill="#666" cx="110" cy="145" r="8"/>
+            </svg>` },
+
+            // Scene 1: Park scene (no light)
+            { hasLight: false, svg: `<svg viewBox="0 0 170 170" xmlns="http://www.w3.org/2000/svg">
+                <rect fill="#1a2a1a" width="170" height="170"/>
+                <rect fill="#2d4a2d" x="0" y="110" width="170" height="60"/>
+                <ellipse fill="#1e3d1e" cx="40" cy="60" rx="35" ry="40"/>
+                <rect fill="#4a3728" x="35" y="80" width="10" height="40"/>
+                <ellipse fill="#1e3d1e" cx="130" cy="50" rx="40" ry="45"/>
+                <rect fill="#4a3728" x="125" y="75" width="10" height="45"/>
+                <ellipse fill="#2d5a2d" cx="85" cy="80" rx="25" ry="30"/>
+                <rect fill="#4a3728" x="82" y="95" width="6" height="25"/>
+                <path fill="#5a4a3a" d="M20 130 Q85 110 150 130 L150 170 L20 170 Z"/>
+                <rect fill="#6a5a4a" x="70" y="125" width="30" height="8" rx="2"/>
+                <circle fill="#ffeb3b" cx="30" cy="140" r="2" opacity="0.3"/>
+                <circle fill="#ffeb3b" cx="140" cy="145" r="2" opacity="0.3"/>
+            </svg>` },
+
+            // Scene 2: Highway with traffic light (has light)
+            { hasLight: true, svg: `<svg viewBox="0 0 170 170" xmlns="http://www.w3.org/2000/svg">
+                <rect fill="#1a1a2e" width="170" height="170"/>
+                <rect fill="#2d2d44" x="0" y="85" width="170" height="85"/>
+                <rect fill="#ffeb3b" x="83" y="85" width="4" height="85" opacity="0.4"/>
+                <rect fill="#fff" x="20" y="120" width="25" height="3" opacity="0.5"/>
+                <rect fill="#fff" x="125" y="120" width="25" height="3" opacity="0.5"/>
+                <rect fill="#fff" x="20" y="150" width="25" height="3" opacity="0.5"/>
+                <rect fill="#fff" x="125" y="150" width="25" height="3" opacity="0.5"/>
+                <rect fill="#555" x="140" y="40" width="5" height="60"/>
+                <rect fill="#333" x="133" y="15" width="19" height="35" rx="2"/>
+                <circle id="light-1" fill="#333" cx="142.5" cy="24" r="5"/>
+                <circle fill="#333" cx="142.5" cy="35" r="5"/>
+                <circle fill="#333" cx="142.5" cy="46" r="5"/>
+                <rect fill="#4a90a4" x="45" y="95" width="25" height="15" rx="3"/>
+                <circle fill="#222" cx="50" cy="112" r="5"/>
+                <circle fill="#222" cx="65" cy="112" r="5"/>
+                <rect fill="#c45" x="100" y="130" width="30" height="18" rx="3"/>
+                <circle fill="#222" cx="107" cy="150" r="6"/>
+                <circle fill="#222" cx="123" cy="150" r="6"/>
+            </svg>` },
+
+            // Scene 3: Residential street (no light)
+            { hasLight: false, svg: `<svg viewBox="0 0 170 170" xmlns="http://www.w3.org/2000/svg">
+                <rect fill="#1a1a2e" width="170" height="170"/>
+                <rect fill="#2d2d44" x="0" y="110" width="170" height="60"/>
+                <polygon fill="#4a4a6a" points="20,110 50,60 80,110"/>
+                <rect fill="#3a3a5a" x="30" y="80" width="40" height="30"/>
+                <rect fill="#87ceeb" x="38" y="85" width="10" height="12" opacity="0.4"/>
+                <rect fill="#87ceeb" x="52" y="85" width="10" height="12" opacity="0.4"/>
+                <rect fill="#5a4a3a" x="45" y="95" width="10" height="15"/>
+                <polygon fill="#4a4a6a" points="100,110 130,50 160,110"/>
+                <rect fill="#3a3a5a" x="105" y="70" width="50" height="40"/>
+                <rect fill="#87ceeb" x="112" y="78" width="12" height="15" opacity="0.4"/>
+                <rect fill="#87ceeb" x="130" y="78" width="12" height="15" opacity="0.4"/>
+                <rect fill="#ffeb3b" x="85" y="145" width="3" height="25" opacity="0.2"/>
+                <circle fill="#555" cx="15" cy="90" r="15"/>
+                <rect fill="#4a3728" x="12" y="90" width="6" height="20"/>
+            </svg>` },
+
+            // Scene 4: Downtown with traffic light (has light)
+            { hasLight: true, svg: `<svg viewBox="0 0 170 170" xmlns="http://www.w3.org/2000/svg">
+                <rect fill="#1a1a2e" width="170" height="170"/>
+                <rect fill="#2d2d44" x="0" y="120" width="170" height="50"/>
+                <rect fill="#3a3a5a" x="5" y="30" width="45" height="90"/>
+                <rect fill="#87ceeb" x="12" y="40" width="8" height="10" opacity="0.5"/>
+                <rect fill="#87ceeb" x="25" y="40" width="8" height="10" opacity="0.5"/>
+                <rect fill="#87ceeb" x="38" y="40" width="8" height="10" opacity="0.5"/>
+                <rect fill="#87ceeb" x="12" y="60" width="8" height="10" opacity="0.5"/>
+                <rect fill="#87ceeb" x="25" y="60" width="8" height="10" opacity="0.5"/>
+                <rect fill="#87ceeb" x="38" y="60" width="8" height="10" opacity="0.5"/>
+                <rect fill="#4a4a6a" x="60" y="50" width="50" height="70"/>
+                <rect fill="#87ceeb" x="68" y="58" width="12" height="15" opacity="0.4"/>
+                <rect fill="#87ceeb" x="88" y="58" width="12" height="15" opacity="0.4"/>
+                <rect fill="#87ceeb" x="68" y="80" width="12" height="15" opacity="0.4"/>
+                <rect fill="#87ceeb" x="88" y="80" width="12" height="15" opacity="0.4"/>
+                <rect fill="#3a3a5a" x="120" y="60" width="45" height="60"/>
+                <rect fill="#555" x="55" y="85" width="4" height="35"/>
+                <rect fill="#333" x="48" y="65" width="18" height="25" rx="2"/>
+                <circle id="light-2" fill="#333" cx="57" cy="72" r="4"/>
+                <circle fill="#333" cx="57" cy="82" r="4"/>
+                <rect fill="#ffeb3b" x="0" y="135" width="170" height="2" opacity="0.3"/>
+            </svg>` },
+
+            // Scene 5: Beach/waterfront (no light)
+            { hasLight: false, svg: `<svg viewBox="0 0 170 170" xmlns="http://www.w3.org/2000/svg">
+                <rect fill="#1a2a3a" width="170" height="170"/>
+                <rect fill="#2a4a6a" x="0" y="60" width="170" height="50"/>
+                <rect fill="#d4a574" x="0" y="110" width="170" height="60"/>
+                <path fill="#3a5a7a" d="M0 70 Q40 60 85 70 Q130 80 170 65 L170 110 L0 110 Z" opacity="0.5"/>
+                <ellipse fill="#c49a64" cx="40" cy="130" rx="25" ry="8"/>
+                <rect fill="#8b4513" x="35" y="115" width="3" height="20"/>
+                <polygon fill="#2d8b2d" points="36.5,90 25,120 48,120"/>
+                <circle fill="#ffeb3b" cx="140" cy="30" r="20" opacity="0.3"/>
+                <rect fill="#87ceeb" x="100" y="125" width="20" height="30"/>
+                <polygon fill="#e74c3c" points="100,125 110,105 120,125"/>
+                <circle fill="#fff" cx="60" cy="45" r="12" opacity="0.3"/>
+                <circle fill="#fff" cx="80" cy="40" r="8" opacity="0.2"/>
+            </svg>` },
+
+            // Scene 6: School zone with traffic light (has light)
+            { hasLight: true, svg: `<svg viewBox="0 0 170 170" xmlns="http://www.w3.org/2000/svg">
+                <rect fill="#1a1a2e" width="170" height="170"/>
+                <rect fill="#2d2d44" x="0" y="100" width="170" height="70"/>
+                <rect fill="#6a4a3a" x="20" y="40" width="80" height="60" rx="3"/>
+                <rect fill="#87ceeb" x="30" y="50" width="15" height="20" opacity="0.5"/>
+                <rect fill="#87ceeb" x="55" y="50" width="15" height="20" opacity="0.5"/>
+                <rect fill="#87ceeb" x="80" y="50" width="15" height="20" opacity="0.5"/>
+                <rect fill="#5a3a2a" x="50" y="75" width="20" height="25"/>
+                <polygon fill="#8b4513" points="20,40 60,15 100,40"/>
+                <rect fill="#ffeb3b" x="55" y="22" width="10" height="8" opacity="0.5"/>
+                <rect fill="#555" x="130" y="55" width="4" height="45"/>
+                <rect fill="#333" x="123" y="30" width="18" height="30" rx="2"/>
+                <circle id="light-3" fill="#333" cx="132" cy="38" r="4"/>
+                <circle fill="#333" cx="132" cy="48" r="4"/>
+                <circle fill="#333" cx="132" cy="58" r="4"/>
+                <rect fill="#fff" x="40" y="115" width="30" height="4" opacity="0.6"/>
+                <rect fill="#fff" x="40" y="125" width="30" height="4" opacity="0.6"/>
+                <rect fill="#fff" x="40" y="135" width="30" height="4" opacity="0.6"/>
+            </svg>` },
+
+            // Scene 7: Industrial area (no light)
+            { hasLight: false, svg: `<svg viewBox="0 0 170 170" xmlns="http://www.w3.org/2000/svg">
+                <rect fill="#1a1a2e" width="170" height="170"/>
+                <rect fill="#2a2a3e" x="0" y="100" width="170" height="70"/>
+                <rect fill="#4a4a5a" x="10" y="50" width="60" height="50"/>
+                <rect fill="#3a3a4a" x="20" y="55" width="15" height="25"/>
+                <rect fill="#3a3a4a" x="45" y="55" width="15" height="25"/>
+                <rect fill="#555" x="75" y="30" width="12" height="70"/>
+                <rect fill="#666" x="72" y="20" width="18" height="15"/>
+                <rect fill="#4a4a5a" x="100" y="40" width="60" height="60"/>
+                <rect fill="#333" x="110" y="50" width="20" height="30"/>
+                <rect fill="#333" x="135" y="60" width="15" height="20"/>
+                <circle fill="#777" cx="130" cy="90" r="15"/>
+                <rect fill="#555" x="127" y="75" width="6" height="30"/>
+                <ellipse fill="#444" cx="50" cy="130" rx="30" ry="5"/>
+                <circle fill="#2a2a3a" cx="90" y="25" r="8" opacity="0.3"/>
+            </svg>` },
+
+            // Scene 8: Shopping area with traffic light (has light)
+            { hasLight: true, svg: `<svg viewBox="0 0 170 170" xmlns="http://www.w3.org/2000/svg">
+                <rect fill="#1a1a2e" width="170" height="170"/>
+                <rect fill="#2d2d44" x="0" y="110" width="170" height="60"/>
+                <rect fill="#5a4a6a" x="5" y="45" width="50" height="65"/>
+                <rect fill="#e74c3c" x="10" y="50" width="40" height="15" opacity="0.7"/>
+                <rect fill="#87ceeb" x="15" y="70" width="12" height="20" opacity="0.4"/>
+                <rect fill="#87ceeb" x="33" y="70" width="12" height="20" opacity="0.4"/>
+                <rect fill="#4a5a6a" x="65" y="35" width="45" height="75"/>
+                <rect fill="#3498db" x="70" y="40" width="35" height="12" opacity="0.7"/>
+                <rect fill="#87ceeb" x="75" y="60" width="10" height="25" opacity="0.4"/>
+                <rect fill="#87ceeb" x="90" y="60" width="10" height="25" opacity="0.4"/>
+                <rect fill="#5a5a7a" x="120" y="50" width="45" height="60"/>
+                <rect fill="#2ecc71" x="125" y="55" width="35" height="12" opacity="0.7"/>
+                <rect fill="#555" x="58" y="75" width="4" height="35"/>
+                <rect fill="#333" x="51" y="55" width="18" height="25" rx="2"/>
+                <circle id="light-4" fill="#333" cx="60" cy="62" r="4"/>
+                <circle fill="#333" cx="60" cy="72" r="4"/>
+                <rect fill="#ffeb3b" x="0" y="125" width="170" height="2" opacity="0.3"/>
+                <circle fill="#222" cx="30" cy="140" r="3"/>
+                <circle fill="#222" cx="140" cy="145" r="3"/>
+            </svg>` }
+        ];
+
+        const gameState = {
+            phase: 'idle', // idle, showing, human, ai-light, ai-full, ai-removed, results
+            lightOrder: [],      // indices of tiles with lights, in blink order
+            playerSelections: [],
+            score: 0,
+            round: 1,
+            attempts: 0,
+            correct: 0,
+            phaseScores: { human: [], aiLight: [], aiFull: [], aiRemoved: [] },
+            phaseRound: 0        // rounds within current phase
+        };
+
+        const gameBoard = document.getElementById('game-board');
+        const startBtn = document.getElementById('start-btn');
+        const phaseIndicator = document.getElementById('phase-indicator');
+        const gameInstruction = document.getElementById('game-instruction');
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function shuffle(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function renderBoard() {
+            // Shuffle scenes and render
+            const shuffled = shuffle([...Array(9).keys()]);
+            gameBoard.innerHTML = '';
+
+            shuffled.forEach((sceneIndex, tileIndex) => {
+                const scene = streetScenes[sceneIndex];
+                const tile = document.createElement('div');
+                tile.className = 'game-tile';
+                tile.dataset.index = tileIndex;
+                tile.dataset.sceneIndex = sceneIndex;
+                tile.dataset.hasLight = scene.hasLight;
+                tile.innerHTML = scene.svg;
+                gameBoard.appendChild(tile);
+
+                tile.addEventListener('click', () => handleTileClick(tileIndex));
+            });
+
+            return shuffled;
+        }
+
+        async function showLightSequence(tileOrder) {
+            gameState.lightOrder = tileOrder;
+            gameInstruction.innerHTML = '<p>Watch the <strong>traffic lights turn green</strong>...</p>';
+
+            for (let i = 0; i < tileOrder.length; i++) {
+                const tileIndex = tileOrder[i];
+                const tile = gameBoard.children[tileIndex];
+                const sceneIndex = parseInt(tile.dataset.sceneIndex);
+
+                // Find the traffic light circle and make it glow green
+                const lightEl = tile.querySelector(`#light-${sceneIndex}`);
+                if (lightEl) {
+                    lightEl.setAttribute('fill', '#22c55e');
+                    lightEl.classList.add('traffic-light-glow');
+                    tile.style.boxShadow = '0 0 30px rgba(34, 197, 94, 0.5)';
+                }
+
+                await sleep(1200);
+
+                // Reset
+                if (lightEl) {
+                    lightEl.setAttribute('fill', '#333');
+                    lightEl.classList.remove('traffic-light-glow');
+                    tile.style.boxShadow = '';
+                }
+
+                await sleep(400);
+            }
+
+            gameInstruction.innerHTML = '<p>Now tap the images with traffic lights <strong>in the order they lit up</strong>!</p>';
+        }
+
+        function handleTileClick(tileIndex) {
+            if (gameState.phase === 'idle' || gameState.phase === 'showing' || gameState.phase === 'results') return;
+
+            const tile = gameBoard.children[tileIndex];
+            const hasLight = tile.dataset.hasLight === 'true';
+
+            // Already selected
+            if (tile.classList.contains('selected')) return;
+
+            gameState.attempts++;
+
+            const expectedIndex = gameState.playerSelections.length;
+            const expectedTile = gameState.lightOrder[expectedIndex];
+
+            if (tileIndex === expectedTile && hasLight) {
+                // Correct!
+                gameState.correct++;
+                gameState.score += 20;
+                gameState.playerSelections.push(tileIndex);
+
+                tile.classList.add('selected', 'correct');
+                const numEl = document.createElement('div');
+                numEl.className = 'selection-number';
+                numEl.textContent = gameState.playerSelections.length;
+                tile.appendChild(numEl);
+
+                if (gameState.playerSelections.length === gameState.lightOrder.length) {
+                    // Completed round!
+                    gameState.score += 50;
+                    recordPhaseScore();
+                    setTimeout(() => startNewRound(), 1000);
+                }
+            } else {
+                // Wrong
+                tile.classList.add('wrong');
+                setTimeout(() => tile.classList.remove('wrong'), 500);
+
+                if (!hasLight) {
+                    // Clicked tile without traffic light
+                    gameInstruction.innerHTML = '<p style="color: var(--accent-red);">That image doesn\'t have a traffic light!</p>';
+                } else {
+                    // Wrong order
+                    gameInstruction.innerHTML = '<p style="color: var(--accent-red);">Wrong order! Try again.</p>';
+                }
+
+                recordPhaseScore();
+                setTimeout(() => startNewRound(), 1500);
+            }
+
+            updateStats();
+        }
+
+        function updateStats() {
+            document.getElementById('score').textContent = gameState.score;
+            const accuracy = gameState.attempts > 0
+                ? Math.round((gameState.correct / gameState.attempts) * 100)
+                : 0;
+            document.getElementById('accuracy').textContent = accuracy + '%';
+            document.getElementById('round').textContent = gameState.round;
+        }
+
+        function recordPhaseScore() {
+            const accuracy = gameState.attempts > 0
+                ? (gameState.correct / gameState.attempts) * 100
+                : 0;
+
+            switch (gameState.phase) {
+                case 'human':
+                    gameState.phaseScores.human.push(accuracy);
+                    break;
+                case 'ai-light':
+                    gameState.phaseScores.aiLight.push(accuracy);
+                    break;
+                case 'ai-full':
+                    gameState.phaseScores.aiFull.push(accuracy);
+                    break;
+                case 'ai-removed':
+                    gameState.phaseScores.aiRemoved.push(accuracy);
+                    break;
+            }
+        }
+
+        function showAIHints() {
+            // Clear previous hints
+            document.querySelectorAll('.game-tile').forEach(t => t.classList.remove('ai-hint'));
+
+            // Show hint for next expected tile
+            const nextIndex = gameState.playerSelections.length;
+            if (nextIndex < gameState.lightOrder.length) {
+                const hintTile = gameBoard.children[gameState.lightOrder[nextIndex]];
+                hintTile.classList.add('ai-hint');
+            }
+        }
+
+        async function autoSelect() {
+            if (gameState.phase !== 'ai-full') return;
+
+            await sleep(600);
+            if (gameState.phase !== 'ai-full') return;
+
+            const nextIndex = gameState.playerSelections.length;
+            if (nextIndex < gameState.lightOrder.length) {
+                handleTileClick(gameState.lightOrder[nextIndex]);
+            }
+        }
+
+        async function startNewRound() {
+            gameState.round++;
+            gameState.phaseRound++;
+            gameState.playerSelections = [];
+
+            // Check phase transitions (every 3 rounds)
+            if (gameState.phaseRound >= 3) {
+                gameState.phaseRound = 0;
+
+                if (gameState.phase === 'human') {
+                    setPhase('ai-light');
+                } else if (gameState.phase === 'ai-light') {
+                    setPhase('ai-full');
+                } else if (gameState.phase === 'ai-full') {
+                    setPhase('ai-removed');
+                } else if (gameState.phase === 'ai-removed') {
+                    endGame();
+                    return;
+                }
+            }
+
+            // Render new board
+            const shuffled = renderBoard();
+
+            // Find tiles with traffic lights
+            const tilesWithLights = [];
+            for (let i = 0; i < 9; i++) {
+                const tile = gameBoard.children[i];
+                if (tile.dataset.hasLight === 'true') {
+                    tilesWithLights.push(i);
+                }
+            }
+
+            // Pick 3-5 lights to blink (based on difficulty)
+            const numLights = Math.min(3 + Math.floor(gameState.round / 4), 5);
+            const shuffledLights = shuffle(tilesWithLights).slice(0, numLights);
+
+            await sleep(500);
+            gameState.phase = gameState.phase === 'idle' ? 'human' : gameState.phase;
+            const prevPhase = gameState.phase;
+            gameState.phase = 'showing';
+
+            await showLightSequence(shuffledLights);
+
+            gameState.phase = prevPhase;
+
+            // Apply AI assistance if in those phases
+            if (gameState.phase === 'ai-light' || gameState.phase === 'ai-full') {
+                showAIHints();
+                if (gameState.phase === 'ai-full') {
+                    autoSelect();
+                }
+            }
+
+            updateStats();
+        }
+
+        function setPhase(phase) {
+            gameState.phase = phase;
+            gameState.phaseRound = 0;
+
+            document.querySelectorAll('.game-tile').forEach(t => t.classList.remove('ai-hint'));
+
+            switch (phase) {
+                case 'human':
+                    phaseIndicator.textContent = 'Phase 1: Human Only';
+                    phaseIndicator.className = 'phase-indicator';
+                    gameInstruction.querySelector('p').innerHTML = 'Watch the street scenes. Some contain <strong>traffic lights</strong> that will turn green one by one. Then tap the images with traffic lights <strong>in the order they lit up</strong>.';
+                    break;
+                case 'ai-light':
+                    phaseIndicator.textContent = 'Phase 2: AI Hints';
+                    phaseIndicator.className = 'phase-indicator ai-active';
+                    gameInstruction.innerHTML = '<p>AI is now <strong style="color: var(--accent-green);">highlighting the next correct tile</strong>. Just follow the hints!</p>';
+                    break;
+                case 'ai-full':
+                    phaseIndicator.textContent = 'Phase 3: AI Auto-Select';
+                    phaseIndicator.className = 'phase-indicator ai-active';
+                    gameInstruction.innerHTML = '<p>AI is now <strong style="color: var(--accent-green);">automatically selecting</strong> for you. Watch and relax...</p>';
+                    break;
+                case 'ai-removed':
+                    phaseIndicator.textContent = 'Phase 4: AI Removed';
+                    phaseIndicator.className = 'phase-indicator ai-removed';
+                    gameInstruction.innerHTML = '<p style="color: var(--accent-red);"><strong>AI assistance removed!</strong> You\'re on your own again.</p>';
+                    break;
+            }
+        }
+
+        async function startGame() {
+            startBtn.style.display = 'none';
+            gameState.score = 0;
+            gameState.round = 0;
+            gameState.attempts = 0;
+            gameState.correct = 0;
+            gameState.phaseRound = 0;
+            gameState.phaseScores = { human: [], aiLight: [], aiFull: [], aiRemoved: [] };
+
+            setPhase('human');
+            updateStats();
+            await startNewRound();
+        }
+
+        function endGame() {
+            gameState.phase = 'results';
+
+            // Calculate averages
+            const avg = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+
+            const humanAvg = avg(gameState.phaseScores.human);
+            const aiAvg = avg([...gameState.phaseScores.aiLight, ...gameState.phaseScores.aiFull]);
+            const afterAvg = avg(gameState.phaseScores.aiRemoved);
+
+            // Show results
+            showSection('results');
+
+            // Animate bars
+            setTimeout(() => {
+                document.getElementById('bar-before').style.height = Math.max(humanAvg * 1.5, 20) + 'px';
+                document.getElementById('bar-with-ai').style.height = Math.max(aiAvg * 1.5, 20) + 'px';
+                document.getElementById('bar-after').style.height = Math.max(afterAvg * 1.5, 20) + 'px';
+
+                const decay = humanAvg > 0 ? Math.round(((humanAvg - afterAvg) / humanAvg) * 100) : 0;
+                document.getElementById('decay-percentage').textContent = '-' + Math.max(0, decay) + '%';
+            }, 300);
+        }
+
+        startBtn.addEventListener('click', startGame);
+
+        document.getElementById('continue-to-challenge').addEventListener('click', () => {
+            showSection('challenge');
+        });
+
+        // Initialize board preview
+        renderBoard();
+
+        // ===================
+        // COUNTER LOGIC
+        // ===================
+        const counterData = {
+            queries: { value: 2500000000 * (Date.now() % 86400000) / 86400000, rate: 29000 },
+            prices: { value: 2500000 * (Date.now() % 86400000) / 86400000, rate: 29 },
+            routes: { value: 100000000 * (Date.now() % 86400000) / 86400000, rate: 1150 },
+            recommendations: { value: 5000000000 * (Date.now() % 86400000) / 86400000, rate: 58000 },
+            companions: { value: 160000000 * (Date.now() % 86400000) / 86400000, rate: 1800 },
+            code: { value: 1000000000 * (Date.now() % 86400000) / 86400000, rate: 12000 },
+            content: { value: 360000000 * (Date.now() % 86400000) / 86400000, rate: 4200 },
+            translations: { value: 500000000 * (Date.now() % 86400000) / 86400000, rate: 5800 },
+            images: { value: 73000000 * (Date.now() % 86400000) / 86400000, rate: 850 },
+            decisions: { value: 30000000 * (Date.now() % 86400000) / 86400000, rate: 340 }
+        };
+
+        // Trend data (human % vs AI % over 10 years)
+        const trendData = {
+            queries: [
+                { year: 2015, human: 100, ai: 0 },
+                { year: 2017, human: 98, ai: 2 },
+                { year: 2019, human: 92, ai: 8 },
+                { year: 2021, human: 80, ai: 20 },
+                { year: 2023, human: 55, ai: 45 },
+                { year: 2025, human: 30, ai: 70 }
+            ],
+            prices: [
+                { year: 2015, human: 85, ai: 15 },
+                { year: 2017, human: 75, ai: 25 },
+                { year: 2019, human: 60, ai: 40 },
+                { year: 2021, human: 45, ai: 55 },
+                { year: 2023, human: 30, ai: 70 },
+                { year: 2025, human: 15, ai: 85 }
+            ],
+            routes: [
+                { year: 2015, human: 70, ai: 30 },
+                { year: 2017, human: 55, ai: 45 },
+                { year: 2019, human: 40, ai: 60 },
+                { year: 2021, human: 25, ai: 75 },
+                { year: 2023, human: 15, ai: 85 },
+                { year: 2025, human: 8, ai: 92 }
+            ],
+            recommendations: [
+                { year: 2015, human: 60, ai: 40 },
+                { year: 2017, human: 45, ai: 55 },
+                { year: 2019, human: 30, ai: 70 },
+                { year: 2021, human: 18, ai: 82 },
+                { year: 2023, human: 10, ai: 90 },
+                { year: 2025, human: 5, ai: 95 }
+            ],
+            companions: [
+                { year: 2015, human: 100, ai: 0 },
+                { year: 2017, human: 99, ai: 1 },
+                { year: 2019, human: 97, ai: 3 },
+                { year: 2021, human: 92, ai: 8 },
+                { year: 2023, human: 80, ai: 20 },
+                { year: 2025, human: 65, ai: 35 }
+            ],
+            code: [
+                { year: 2015, human: 100, ai: 0 },
+                { year: 2017, human: 99, ai: 1 },
+                { year: 2019, human: 95, ai: 5 },
+                { year: 2021, human: 85, ai: 15 },
+                { year: 2023, human: 60, ai: 40 },
+                { year: 2025, human: 35, ai: 65 }
+            ],
+            content: [
+                { year: 2015, human: 100, ai: 0 },
+                { year: 2017, human: 99, ai: 1 },
+                { year: 2019, human: 97, ai: 3 },
+                { year: 2021, human: 90, ai: 10 },
+                { year: 2023, human: 70, ai: 30 },
+                { year: 2025, human: 45, ai: 55 }
+            ],
+            translations: [
+                { year: 2015, human: 70, ai: 30 },
+                { year: 2017, human: 55, ai: 45 },
+                { year: 2019, human: 40, ai: 60 },
+                { year: 2021, human: 25, ai: 75 },
+                { year: 2023, human: 12, ai: 88 },
+                { year: 2025, human: 5, ai: 95 }
+            ],
+            images: [
+                { year: 2015, human: 100, ai: 0 },
+                { year: 2017, human: 100, ai: 0 },
+                { year: 2019, human: 99, ai: 1 },
+                { year: 2021, human: 95, ai: 5 },
+                { year: 2023, human: 70, ai: 30 },
+                { year: 2025, human: 40, ai: 60 }
+            ],
+            decisions: [
+                { year: 2015, human: 95, ai: 5 },
+                { year: 2017, human: 88, ai: 12 },
+                { year: 2019, human: 75, ai: 25 },
+                { year: 2021, human: 60, ai: 40 },
+                { year: 2023, human: 45, ai: 55 },
+                { year: 2025, human: 30, ai: 70 }
+            ]
+        };
+
+        function formatNumber(num) {
+            if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+            if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+            if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K';
+            return Math.floor(num).toLocaleString();
+        }
+
+        function updateCounters() {
+            let total = 0;
+            let totalRate = 0;
+
+            Object.keys(counterData).forEach(key => {
+                counterData[key].value += counterData[key].rate / 10;
+                total += counterData[key].value;
+                totalRate += counterData[key].rate;
+
+                const el = document.getElementById(`counter-${key}`);
+                if (el) el.textContent = formatNumber(counterData[key].value);
+            });
+
+            document.getElementById('counter-total').textContent = formatNumber(total);
+            document.getElementById('rate-total').textContent = totalRate.toLocaleString();
+        }
+
+        function renderTrendCharts() {
+            Object.keys(trendData).forEach(metric => {
+                const container = document.getElementById(`trend-${metric}`);
+                if (!container) return;
+
+                container.innerHTML = '';
+                const data = trendData[metric];
+
+                data.forEach((point, i) => {
+                    const group = document.createElement('div');
+                    group.style.display = 'flex';
+                    group.style.flexDirection = 'column';
+                    group.style.flex = '1';
+                    group.style.gap = '1px';
+                    group.style.height = '100%';
+                    group.style.justifyContent = 'flex-end';
+
+                    const humanBar = document.createElement('div');
+                    humanBar.className = 'trend-bar human';
+                    humanBar.style.height = point.human + '%';
+
+                    const aiBar = document.createElement('div');
+                    aiBar.className = 'trend-bar ai';
+                    aiBar.style.height = point.ai + '%';
+
+                    group.appendChild(humanBar);
+                    group.appendChild(aiBar);
+                    container.appendChild(group);
+                });
+            });
+        }
+
+        // Update counters every 100ms
+        setInterval(updateCounters, 100);
+        renderTrendCharts();
+
+        // ===================
+        // CHALLENGE / SKILLS
+        // ===================
+        const skills = [
+            // Cognitive
+            { name: 'Mental Math', emoji: '🔢', category: 'cognitive', desc: 'Calculate without a calculator', humanPct: 15, aiPct: 85 },
+            { name: 'Pattern Recognition', emoji: '🔍', category: 'cognitive', desc: 'Find patterns in data', humanPct: 25, aiPct: 75 },
+            { name: 'Logical Reasoning', emoji: '🧩', category: 'cognitive', desc: 'Solve logic puzzles', humanPct: 30, aiPct: 70 },
+            { name: 'Speed Reading', emoji: '📖', category: 'cognitive', desc: 'Read and comprehend quickly', humanPct: 40, aiPct: 60 },
+            { name: 'Memory Recall', emoji: '🧠', category: 'memory', desc: 'Remember sequences and facts', humanPct: 10, aiPct: 90 },
+            { name: 'Strategic Planning', emoji: '♟️', category: 'cognitive', desc: 'Plan optimal strategies', humanPct: 25, aiPct: 75 },
+            { name: 'Attention to Detail', emoji: '🔬', category: 'cognitive', desc: 'Spot errors and inconsistencies', humanPct: 30, aiPct: 70 },
+
+            // Creative
+            { name: 'Writing Fiction', emoji: '✍️', category: 'creative', desc: 'Create compelling stories', humanPct: 45, aiPct: 55 },
+            { name: 'Poetry', emoji: '📜', category: 'creative', desc: 'Write meaningful poetry', humanPct: 50, aiPct: 50 },
+            { name: 'Visual Art', emoji: '🎨', category: 'creative', desc: 'Create original artwork', humanPct: 40, aiPct: 60 },
+            { name: 'Music Composition', emoji: '🎵', category: 'creative', desc: 'Compose original music', humanPct: 45, aiPct: 55 },
+            { name: 'Humor & Comedy', emoji: '😂', category: 'creative', desc: 'Be genuinely funny', humanPct: 70, aiPct: 30 },
+            { name: 'Improvisation', emoji: '🎭', category: 'creative', desc: 'Create on the spot', humanPct: 75, aiPct: 25 },
+            { name: 'Aesthetic Judgment', emoji: '👁️', category: 'creative', desc: 'Judge beauty and taste', humanPct: 60, aiPct: 40 },
+
+            // Physical
+            { name: 'Fine Motor Skills', emoji: '🤲', category: 'physical', desc: 'Precise hand movements', humanPct: 80, aiPct: 20 },
+            { name: 'Physical Endurance', emoji: '🏃', category: 'physical', desc: 'Sustained physical effort', humanPct: 95, aiPct: 5 },
+            { name: 'Spatial Navigation', emoji: '🧭', category: 'physical', desc: 'Navigate physical space', humanPct: 60, aiPct: 40 },
+            { name: 'Hand-Eye Coordination', emoji: '🎯', category: 'physical', desc: 'React to visual stimuli', humanPct: 70, aiPct: 30 },
+            { name: 'Balance & Agility', emoji: '🤸', category: 'physical', desc: 'Physical balance and grace', humanPct: 90, aiPct: 10 },
+            { name: 'Taste & Smell', emoji: '👃', category: 'physical', desc: 'Sensory discrimination', humanPct: 95, aiPct: 5 },
+
+            // Social
+            { name: 'Emotional Intelligence', emoji: '💝', category: 'social', desc: 'Read and respond to emotions', humanPct: 65, aiPct: 35 },
+            { name: 'Negotiation', emoji: '🤝', category: 'social', desc: 'Reach agreements', humanPct: 55, aiPct: 45 },
+            { name: 'Persuasion', emoji: '🗣️', category: 'social', desc: 'Change minds', humanPct: 50, aiPct: 50 },
+            { name: 'Building Trust', emoji: '🫂', category: 'social', desc: 'Earn genuine trust', humanPct: 85, aiPct: 15 },
+            { name: 'Reading Body Language', emoji: '👀', category: 'social', desc: 'Interpret non-verbal cues', humanPct: 75, aiPct: 25 },
+            { name: 'Cultural Sensitivity', emoji: '🌍', category: 'social', desc: 'Navigate cultural nuance', humanPct: 60, aiPct: 40 },
+            { name: 'Conflict Resolution', emoji: '⚖️', category: 'social', desc: 'Mediate disputes', humanPct: 65, aiPct: 35 },
+
+            // Technical
+            { name: 'Code Debugging', emoji: '🐛', category: 'technical', desc: 'Find and fix bugs', humanPct: 30, aiPct: 70 },
+            { name: 'System Architecture', emoji: '🏗️', category: 'technical', desc: 'Design complex systems', humanPct: 40, aiPct: 60 },
+            { name: 'Data Analysis', emoji: '📊', category: 'technical', desc: 'Extract insights from data', humanPct: 20, aiPct: 80 },
+            { name: 'Scientific Research', emoji: '🔬', category: 'technical', desc: 'Conduct experiments', humanPct: 50, aiPct: 50 },
+            { name: 'Medical Diagnosis', emoji: '🩺', category: 'technical', desc: 'Diagnose conditions', humanPct: 35, aiPct: 65 },
+            { name: 'Legal Analysis', emoji: '⚖️', category: 'technical', desc: 'Interpret laws', humanPct: 40, aiPct: 60 },
+            { name: 'Financial Modeling', emoji: '💹', category: 'technical', desc: 'Predict markets', humanPct: 25, aiPct: 75 },
+
+            // Memory
+            { name: 'Face Recognition', emoji: '👤', category: 'memory', desc: 'Remember faces', humanPct: 50, aiPct: 50 },
+            { name: 'Name Recall', emoji: '📇', category: 'memory', desc: 'Remember names', humanPct: 40, aiPct: 60 },
+            { name: 'Trivia Knowledge', emoji: '❓', category: 'memory', desc: 'Know random facts', humanPct: 10, aiPct: 90 },
+            { name: 'Procedural Memory', emoji: '📋', category: 'memory', desc: 'Remember how to do things', humanPct: 70, aiPct: 30 },
+            { name: 'Autobiographical Memory', emoji: '📔', category: 'memory', desc: 'Remember personal experiences', humanPct: 95, aiPct: 5 },
+
+            // Judgment
+            { name: 'Ethical Reasoning', emoji: '🧭', category: 'judgment', desc: 'Make moral decisions', humanPct: 70, aiPct: 30 },
+            { name: 'Risk Assessment', emoji: '⚠️', category: 'judgment', desc: 'Evaluate dangers', humanPct: 45, aiPct: 55 },
+            { name: 'Common Sense', emoji: '💡', category: 'judgment', desc: 'Practical everyday reasoning', humanPct: 60, aiPct: 40 },
+            { name: 'Intuition', emoji: '✨', category: 'judgment', desc: 'Gut feelings about decisions', humanPct: 75, aiPct: 25 },
+            { name: 'Long-term Planning', emoji: '📅', category: 'judgment', desc: 'Plan for the future', humanPct: 55, aiPct: 45 },
+            { name: 'Understanding Context', emoji: '🎯', category: 'judgment', desc: 'Know what matters here', humanPct: 55, aiPct: 45 },
+            { name: 'Knowing When to Quit', emoji: '🚪', category: 'judgment', desc: 'Recognize futility', humanPct: 65, aiPct: 35 },
+            { name: 'Reading the Room', emoji: '🏠', category: 'judgment', desc: 'Sense social dynamics', humanPct: 70, aiPct: 30 },
+            { name: 'Authentic Self-Expression', emoji: '🎭', category: 'judgment', desc: 'Express genuine identity', humanPct: 90, aiPct: 10 },
+            { name: 'Caring About Outcomes', emoji: '❤️', category: 'judgment', desc: 'Actually wanting things', humanPct: 95, aiPct: 5 }
+        ];
+
+        const skillsGrid = document.getElementById('skills-grid');
+        const categoryTabs = document.querySelectorAll('.category-tab');
+
+        function renderSkills(category = 'all') {
+            const filtered = category === 'all'
+                ? skills
+                : skills.filter(s => s.category === category);
+
+            skillsGrid.innerHTML = filtered.map(skill => {
+                const advantage = skill.humanPct > 60 ? 'human-advantage'
+                    : skill.aiPct > 60 ? 'ai-advantage'
+                    : 'contested';
+
+                return `
+                    <div class="skill-card ${advantage}" data-skill="${skill.name}">
+                        <div class="skill-emoji">${skill.emoji}</div>
+                        <div class="skill-name">${skill.name}</div>
+                        <div class="skill-desc">${skill.desc}</div>
+                        <div class="skill-status">
+                            <div class="status-bar">
+                                <div class="status-human" style="width: ${skill.humanPct}%"></div>
+                                <div class="status-ai" style="width: ${skill.aiPct}%"></div>
+                            </div>
+                            <div class="status-label">${skill.humanPct > skill.aiPct ? 'Human +' + (skill.humanPct - skill.aiPct) : 'AI +' + (skill.aiPct - skill.humanPct)}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Add click handlers
+            document.querySelectorAll('.skill-card').forEach(card => {
+                card.addEventListener('click', () => openChallenge(card.dataset.skill));
+            });
+        }
+
+        categoryTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                categoryTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                renderSkills(tab.dataset.category);
+            });
+        });
+
+        renderSkills();
+
+        // Challenge Modal
+        const modal = document.getElementById('challenge-modal');
+        const modalClose = document.getElementById('modal-close');
+        const modalBody = document.getElementById('modal-body');
+        const modalSkillName = document.getElementById('modal-skill-name');
+
+        function openChallenge(skillName) {
+            const skill = skills.find(s => s.name === skillName);
+            if (!skill) return;
+
+            modalSkillName.textContent = skill.emoji + ' ' + skill.name;
+
+            // Generate challenge based on skill type
+            const challenges = {
+                'Mental Math': {
+                    type: 'speed',
+                    prompt: 'Solve: 47 × 23 = ?',
+                    answer: '1081',
+                    aiTime: '0.001s'
+                },
+                'Memory Recall': {
+                    type: 'memory',
+                    prompt: 'Memorize this sequence: 7, 3, 9, 1, 5, 8, 2, 6, 4',
+                    answer: '7, 3, 9, 1, 5, 8, 2, 6, 4'
+                },
+                'Writing Fiction': {
+                    type: 'creative',
+                    prompt: 'Write a 2-sentence story about loss.',
+                    aiAnswer: 'The lighthouse keeper polished the lens one last time, knowing the automation system would take over tomorrow. As the light swept the dark waters, he wondered if the ships would notice the difference—or if anyone ever noticed the small acts of care that kept the world turning.'
+                },
+                'Trivia Knowledge': {
+                    type: 'trivia',
+                    prompt: 'What year was the first email sent?',
+                    answer: '1971',
+                    aiTime: '0.001s'
+                }
+            };
+
+            const challenge = challenges[skillName] || {
+                type: 'generic',
+                prompt: `Demonstrate your ${skillName.toLowerCase()} ability.`,
+                note: 'This challenge is coming soon.'
+            };
+
+            modalBody.innerHTML = `
+                <div class="challenge-prompt">
+                    <h3>THE CHALLENGE</h3>
+                    <p>${challenge.prompt}</p>
+                </div>
+                ${challenge.type !== 'generic' ? `
+                    <textarea class="challenge-input" placeholder="Your answer..."></textarea>
+                    <div class="challenge-timer" id="challenge-timer">30</div>
+                    <button class="challenge-submit" id="submit-challenge">Submit Answer</button>
+                ` : `
+                    <p style="color: var(--text-secondary); text-align: center; padding: 2rem;">
+                        ${challenge.note}<br><br>
+                        Current estimate: <strong>Human ${skill.humanPct}%</strong> vs <strong>AI ${skill.aiPct}%</strong>
+                    </p>
+                `}
+            `;
+
+            modal.classList.add('active');
+
+            if (challenge.type !== 'generic') {
+                let timeLeft = 30;
+                const timerEl = document.getElementById('challenge-timer');
+                const timerInterval = setInterval(() => {
+                    timeLeft--;
+                    timerEl.textContent = timeLeft;
+                    if (timeLeft <= 0) {
+                        clearInterval(timerInterval);
+                        showChallengeResult(skill, challenge, '');
+                    }
+                }, 1000);
+
+                document.getElementById('submit-challenge').addEventListener('click', () => {
+                    clearInterval(timerInterval);
+                    const userAnswer = document.querySelector('.challenge-input').value;
+                    showChallengeResult(skill, challenge, userAnswer);
+                });
+            }
+        }
+
+        function showChallengeResult(skill, challenge, userAnswer) {
+            const aiWon = skill.aiPct >= skill.humanPct;
+
+            modalBody.innerHTML = `
+                <div class="challenge-result">
+                    <div class="result-icon">${aiWon ? '🤖' : '🎉'}</div>
+                    <div class="result-title">${aiWon ? 'AI Advantage' : 'Human Edge'}</div>
+                    <p style="color: var(--text-secondary);">
+                        ${aiWon
+                            ? `In ${skill.name.toLowerCase()}, AI currently outperforms most humans.`
+                            : `Humans still maintain an advantage in ${skill.name.toLowerCase()}.`
+                        }
+                    </p>
+                    <div class="result-comparison">
+                        <div class="result-side ${!aiWon ? 'winner' : ''}">
+                            <h4>YOUR ANSWER</h4>
+                            <p style="font-size: 0.85rem;">${userAnswer || '(no answer)'}</p>
+                        </div>
+                        <div class="result-side ${aiWon ? 'winner' : ''}">
+                            <h4>AI RESPONSE</h4>
+                            <p style="font-size: 0.85rem;">${challenge.aiAnswer || challenge.answer || 'Instant retrieval'}</p>
+                            ${challenge.aiTime ? `<p style="font-size: 0.7rem; color: var(--text-muted);">Time: ${challenge.aiTime}</p>` : ''}
+                        </div>
+                    </div>
+                    <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 1rem;">
+                        In 2020, AI would have scored ~${Math.max(5, skill.aiPct - 30)}% here.<br>
+                        By 2028, projections suggest ~${Math.min(95, skill.aiPct + 15)}%.
+                    </p>
+                </div>
+            `;
+        }
+
+        modalClose.addEventListener('click', () => {
+            modal.classList.remove('active');
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.remove('active');
+            }
+        });
+
+        // Submit new skill
+        document.getElementById('submit-skill-btn').addEventListener('click', () => {
+            const input = document.getElementById('new-skill-input');
+            const skillName = input.value.trim();
+
+            if (skillName) {
+                skills.push({
+                    name: skillName,
+                    emoji: '🆕',
+                    category: 'judgment',
+                    desc: 'User-submitted skill',
+                    humanPct: 70,
+                    aiPct: 30
+                });
+
+                input.value = '';
+                renderSkills(document.querySelector('.category-tab.active').dataset.category);
+
+                // Show confirmation
+                alert(`"${skillName}" has been added to the skill arena! Challenge it now.`);
+            }
+        });
+    </script>
+</body>
+</html>
