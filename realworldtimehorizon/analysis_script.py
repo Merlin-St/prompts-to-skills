@@ -30,6 +30,43 @@ COLORS = {
     'Claude.ai': '#E57373'  # Coral/Orange
 }
 
+# SOC Major Groups mapping (first 2 digits of SOC code -> group name)
+SOC_MAJOR_GROUPS = {
+    '11': 'Management',
+    '13': 'Business and Financial Operations',
+    '15': 'Computer and Mathematical',
+    '17': 'Architecture and Engineering',
+    '19': 'Life, Physical, and Social Science',
+    '21': 'Community and Social Service',
+    '23': 'Legal',
+    '25': 'Educational Instruction and Library',
+    '27': 'Arts, Design, Entertainment, Sports, and Media',
+    '29': 'Healthcare Practitioners and Technical',
+    '31': 'Healthcare Support',
+    '33': 'Protective Service',
+    '35': 'Food Preparation and Serving Related',
+    '37': 'Building and Grounds Cleaning and Maintenance',
+    '39': 'Personal Care and Service',
+    '41': 'Sales and Related',
+    '43': 'Office and Administrative Support',
+    '45': 'Farming, Fishing, and Forestry',
+    '47': 'Construction and Extraction',
+    '49': 'Installation, Maintenance, and Repair',
+    '51': 'Production',
+    '53': 'Transportation and Material Moving',
+}
+
+# Color palette for SOC Major Groups (top 5 + Other)
+# Colors will be assigned dynamically based on frequency
+CATEGORY_PALETTE = [
+    '#4E79A7',  # Blue
+    '#F28E2B',  # Orange
+    '#59A14F',  # Green
+    '#E15759',  # Red
+    '#B07AA1',  # Purple
+]
+OTHER_COLOR = '#BAB0AC'  # Gray for "Other"
+
 def load_data(platform: str) -> pd.DataFrame:
     """Load data for a specific platform."""
     if platform == '1P API':
@@ -43,8 +80,31 @@ def load_data(platform: str) -> pd.DataFrame:
     return df
 
 
-def extract_onet_task_data(df: pd.DataFrame) -> pd.DataFrame:
-    """Extract O*NET task level data: success rate, duration, stdev, weight."""
+def load_onet_task_mapping() -> dict:
+    """Load O*NET task statements and create task -> SOC major group mapping.
+
+    Returns a dict mapping lowercased task descriptions to their SOC major group name.
+    """
+    df = pd.read_csv(DATA_DIR / 'cl_onet_taskstatements.csv')
+
+    mapping = {}
+    for _, row in df.iterrows():
+        task_lower = row['Task'].lower().strip()
+        soc_code = str(row['O*NET-SOC Code'])
+        major_group_code = soc_code[:2]  # First 2 digits
+        major_group_name = SOC_MAJOR_GROUPS.get(major_group_code, 'Other')
+        mapping[task_lower] = major_group_name
+
+    return mapping
+
+
+def extract_onet_task_data(df: pd.DataFrame, task_mapping: dict = None) -> pd.DataFrame:
+    """Extract O*NET task level data: success rate, duration, stdev, weight.
+
+    Args:
+        df: Raw data DataFrame
+        task_mapping: Optional dict mapping task names to SOC major groups
+    """
 
     # 1. Get task success rates (filter for ::yes suffix)
     success_df = df[
@@ -119,6 +179,11 @@ def extract_onet_task_data(df: pd.DataFrame) -> pd.DataFrame:
 
     # Filter out extreme outliers (duration > 24 hours is likely noise)
     result = result[result['duration_mean'] <= 24]
+
+    # Add SOC major group column if mapping provided
+    if task_mapping is not None:
+        result['major_group'] = result['task_name'].str.lower().str.strip().map(task_mapping)
+        result['major_group'] = result['major_group'].fillna('Other')
 
     return result
 
@@ -221,42 +286,59 @@ def fit_wls(x: np.ndarray, y: np.ndarray, weights: np.ndarray) -> tuple:
     return slope, intercept, predict, results
 
 
-def create_subplot(ax, data: pd.DataFrame, platform: str, data_type: str, color: str):
-    """Create a single subplot with scatter, WLS regression, and error bars."""
+def create_onet_subplot(ax, data: pd.DataFrame, data_type: str, top_categories: list, category_colors: dict):
+    """Create O*NET subplot with points colored by SOC major group.
 
+    Args:
+        ax: Matplotlib axis
+        data: DataFrame with task data including 'major_group' column
+        data_type: Label for the data type (e.g., 'O*NET Tasks')
+        top_categories: List of top N category names to highlight
+        category_colors: Dict mapping category names to colors
+    """
     x = data['duration_mean'].values
     y = data['success_pct'].values
     weights = data['weight_pct'].values
 
     # Get standard deviations for error bars
-    # For y-axis: use success_se (standard error of success rate)
     y_err = data['success_se'].fillna(0).values
 
-    # For x-axis: use duration_stdev scaled down (optional, can be overwhelming)
-    # We'll show duration stdev as horizontal error bars but scaled by 1/sqrt(n) for SE
-    x_err = (data['duration_stdev'].fillna(0) / np.sqrt(data['total_count'].clip(lower=1))).values
-
-    # Fit WLS regression
+    # Fit WLS regression on all data
     slope, intercept, predict, results = fit_wls(x, y, weights)
 
-    # Create scatter plot with size proportional to weight
-    sizes = 50 + 500 * (weights / weights.max())  # Scale sizes for visibility
-    scatter = ax.scatter(x, y, s=sizes, c=color, alpha=0.6, edgecolors='white', linewidth=0.5)
+    # Assign display category (top categories keep their name, others become "Other")
+    data = data.copy()
+    data['display_category'] = data['major_group'].apply(
+        lambda x: x if x in top_categories else 'Other'
+    )
 
-    # Add error bars (y only for cleaner visualization)
-    ax.errorbar(x, y, yerr=y_err, fmt='none', ecolor=color, alpha=0.3, capsize=2, capthick=1)
+    # Plot scatter points by category (Other first so it's in the background)
+    categories_to_plot = ['Other'] + top_categories
+    for category in categories_to_plot:
+        subset = data[data['display_category'] == category]
+        if len(subset) > 0:
+            cat_x = subset['duration_mean'].values
+            cat_y = subset['success_pct'].values
+            cat_weights = subset['weight_pct'].values
+            sizes = 50 + 500 * (cat_weights / weights.max())
+            color = category_colors.get(category, OTHER_COLOR)
+            ax.scatter(cat_x, cat_y, s=sizes, c=color, alpha=0.6,
+                      edgecolors='white', linewidth=0.5, label=category, zorder=2)
 
-    # Plot regression line
+    # Add error bars in gray
+    ax.errorbar(x, y, yerr=y_err, fmt='none', ecolor='gray', alpha=0.2, capsize=2, capthick=1, zorder=1)
+
+    # Plot regression line in BLACK at the FRONT
     x_line = np.linspace(x.min() - 0.5, x.max() + 0.5, 100)
     y_line = predict(x_line)
-    ax.plot(x_line, y_line, '--', color=color, linewidth=2, alpha=0.8)
+    ax.plot(x_line, y_line, '-', color='black', linewidth=2.5, zorder=100)
 
     # Add reference line at 50% success
-    ax.axhline(y=50, color='red', linestyle=':', alpha=0.5, linewidth=1)
+    ax.axhline(y=50, color='gray', linestyle=':', alpha=0.5, linewidth=1, zorder=0)
 
     # Labels and title
     n_points = len(data)
-    ax.set_title(f'{platform} - {data_type}\n(n={n_points})', fontsize=11, fontweight='bold')
+    ax.set_title(f'{data_type}\n(n={n_points})', fontsize=11, fontweight='bold')
     ax.set_xlabel('Duration (Human-Only Time, hours)', fontsize=10)
     ax.set_ylabel('Task Success (%)', fontsize=10)
 
@@ -265,7 +347,59 @@ def create_subplot(ax, data: pd.DataFrame, platform: str, data_type: str, color:
     ax.set_ylim(max(y.min() - 10, 0), min(y.max() + 10, 100))
 
     # Add grid
-    ax.grid(True, alpha=0.3)
+    ax.grid(True, alpha=0.3, zorder=0)
+
+    # Add regression info
+    r_squared = results.rsquared
+    ax.text(0.95, 0.95, f'WLS R² = {r_squared:.3f}\nslope = {slope:.2f}',
+            transform=ax.transAxes, fontsize=9, verticalalignment='top',
+            horizontalalignment='right', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
+    return n_points
+
+
+def create_subplot(ax, data: pd.DataFrame, data_type: str, color: str):
+    """Create a single subplot with scatter, WLS regression, and error bars.
+
+    Used for Request Categories panels (single color).
+    """
+    x = data['duration_mean'].values
+    y = data['success_pct'].values
+    weights = data['weight_pct'].values
+
+    # Get standard deviations for error bars
+    y_err = data['success_se'].fillna(0).values
+
+    # Fit WLS regression
+    slope, intercept, predict, results = fit_wls(x, y, weights)
+
+    # Create scatter plot with size proportional to weight
+    sizes = 50 + 500 * (weights / weights.max())  # Scale sizes for visibility
+    ax.scatter(x, y, s=sizes, c=color, alpha=0.6, edgecolors='white', linewidth=0.5, zorder=2)
+
+    # Add error bars
+    ax.errorbar(x, y, yerr=y_err, fmt='none', ecolor=color, alpha=0.3, capsize=2, capthick=1, zorder=1)
+
+    # Plot regression line in BLACK at the FRONT
+    x_line = np.linspace(x.min() - 0.5, x.max() + 0.5, 100)
+    y_line = predict(x_line)
+    ax.plot(x_line, y_line, '-', color='black', linewidth=2.5, zorder=100)
+
+    # Add reference line at 50% success
+    ax.axhline(y=50, color='gray', linestyle=':', alpha=0.5, linewidth=1, zorder=0)
+
+    # Labels and title
+    n_points = len(data)
+    ax.set_title(f'{data_type}\n(n={n_points})', fontsize=11, fontweight='bold')
+    ax.set_xlabel('Duration (Human-Only Time, hours)', fontsize=10)
+    ax.set_ylabel('Task Success (%)', fontsize=10)
+
+    # Set axis limits
+    ax.set_xlim(0, min(x.max() + 1, 12))
+    ax.set_ylim(max(y.min() - 10, 0), min(y.max() + 10, 100))
+
+    # Add grid
+    ax.grid(True, alpha=0.3, zorder=0)
 
     # Add regression info
     r_squared = results.rsquared
@@ -279,6 +413,11 @@ def create_subplot(ax, data: pd.DataFrame, platform: str, data_type: str, color:
 def main():
     print("Loading data...")
 
+    # Load O*NET task mapping
+    print("Loading O*NET task-to-SOC mapping...")
+    task_mapping = load_onet_task_mapping()
+    print(f"  Loaded {len(task_mapping)} task mappings")
+
     # Load data for both platforms
     df_1p = load_data('1P API')
     df_claude = load_data('Claude.ai')
@@ -286,12 +425,24 @@ def main():
     print(f"1P API data: {len(df_1p)} rows")
     print(f"Claude.ai data: {len(df_claude)} rows")
 
-    # Extract O*NET task data
+    # Extract O*NET task data with SOC mapping
     print("\nExtracting O*NET task data...")
-    onet_1p = extract_onet_task_data(df_1p)
-    onet_claude = extract_onet_task_data(df_claude)
+    onet_1p = extract_onet_task_data(df_1p, task_mapping)
+    onet_claude = extract_onet_task_data(df_claude, task_mapping)
     print(f"  1P API O*NET tasks: {len(onet_1p)}")
     print(f"  Claude.ai O*NET tasks: {len(onet_claude)}")
+
+    # Determine top 5 SOC major groups across both datasets
+    combined_groups = pd.concat([onet_1p['major_group'], onet_claude['major_group']])
+    group_counts = combined_groups.value_counts()
+    top_categories = group_counts.head(5).index.tolist()
+    print(f"\nTop 5 SOC Major Groups (by task count):")
+    for i, cat in enumerate(top_categories, 1):
+        print(f"  {i}. {cat}: {group_counts[cat]} tasks")
+
+    # Build category colors dict
+    category_colors = {cat: CATEGORY_PALETTE[i] for i, cat in enumerate(top_categories)}
+    category_colors['Other'] = OTHER_COLOR
 
     # Extract Request data
     print("\nExtracting Request category data...")
@@ -303,31 +454,36 @@ def main():
     # Create figure
     print("\nCreating figure...")
     fig, axes = plt.subplots(2, 2, figsize=(14, 12))
-    fig.suptitle('Task Horizons in Real-World Usage\nSuccess vs. Task Duration by Platform and Category Type',
-                 fontsize=14, fontweight='bold', y=0.98)
+
+    # Add big column titles for 1P API and Claude.ai
+    fig.text(0.27, 0.97, '1P API', fontsize=16, fontweight='bold', ha='center', va='bottom')
+    fig.text(0.73, 0.97, 'Claude.ai', fontsize=16, fontweight='bold', ha='center', va='bottom')
+
+    # Main figure title
+    fig.suptitle('Task Horizons in Real-World Usage\nSuccess vs. Task Duration by Category Type',
+                 fontsize=14, fontweight='bold', y=1.02)
 
     # 1P API - O*NET Tasks (top-left)
-    create_subplot(axes[0, 0], onet_1p, '1P API', 'O*NET Tasks', COLORS['1P API'])
+    create_onet_subplot(axes[0, 0], onet_1p, 'O*NET Tasks', top_categories, category_colors)
 
     # Claude.ai - O*NET Tasks (top-right)
-    create_subplot(axes[0, 1], onet_claude, 'Claude.ai', 'O*NET Tasks', COLORS['Claude.ai'])
+    create_onet_subplot(axes[0, 1], onet_claude, 'O*NET Tasks', top_categories, category_colors)
 
-    # 1P API - Request Categories (bottom-left)
-    create_subplot(axes[1, 0], request_1p, '1P API', 'Request Categories', COLORS['1P API'])
+    # 1P API - Request Categories (bottom-left) - neutral gray color
+    create_subplot(axes[1, 0], request_1p, 'Request Categories', '#7f7f7f')
 
-    # Claude.ai - Request Categories (bottom-right)
-    create_subplot(axes[1, 1], request_claude, 'Claude.ai', 'Request Categories', COLORS['Claude.ai'])
+    # Claude.ai - Request Categories (bottom-right) - neutral gray color
+    create_subplot(axes[1, 1], request_claude, 'Request Categories', '#7f7f7f')
 
-    # Add legend
-    legend_elements = [
-        Patch(facecolor=COLORS['1P API'], edgecolor='white', label='1P API'),
-        Patch(facecolor=COLORS['Claude.ai'], edgecolor='white', label='Claude.ai'),
-    ]
-    fig.legend(handles=legend_elements, loc='upper center', ncol=2,
-               bbox_to_anchor=(0.5, 0.02), fontsize=10)
+    # Add legend for SOC major group colors
+    legend_elements = [Patch(facecolor=category_colors[cat], edgecolor='white', label=cat)
+                       for cat in top_categories]
+    legend_elements.append(Patch(facecolor=OTHER_COLOR, edgecolor='white', label='Other'))
+    fig.legend(handles=legend_elements, loc='lower center', ncol=3,
+               bbox_to_anchor=(0.5, -0.02), fontsize=9, title='SOC Major Group')
 
     # Adjust layout
-    plt.tight_layout(rect=[0, 0.03, 1, 0.96])
+    plt.tight_layout(rect=[0, 0.05, 1, 0.95])
 
     # Save figures
     output_png = OUTPUT_DIR / 'task_horizon_4panel.png'
@@ -353,6 +509,17 @@ def main():
         print(f"  N = {len(data)}")
         print(f"  Duration: mean={data['duration_mean'].mean():.2f}h, range=[{data['duration_mean'].min():.2f}, {data['duration_mean'].max():.2f}]")
         print(f"  Success: mean={data['success_pct'].mean():.1f}%, range=[{data['success_pct'].min():.1f}, {data['success_pct'].max():.1f}]")
+
+    # Print category breakdown for O*NET panels
+    print("\n" + "="*60)
+    print("SOC Major Group Breakdown")
+    print("="*60)
+    for name, data in [('1P API O*NET', onet_1p), ('Claude.ai O*NET', onet_claude)]:
+        print(f"\n{name}:")
+        group_counts = data['major_group'].value_counts()
+        for group, count in group_counts.items():
+            pct = 100 * count / len(data)
+            print(f"  {group}: {count} ({pct:.1f}%)")
 
 
 if __name__ == '__main__':
